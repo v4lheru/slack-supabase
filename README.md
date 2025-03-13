@@ -179,7 +179,7 @@ npm test
 
 ## License
 
-ISC
+MIT
 
 ## Acknowledgments
 
