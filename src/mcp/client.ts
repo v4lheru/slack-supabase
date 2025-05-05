@@ -93,12 +93,12 @@ export class MCPClient {
             });
 
             // Make the API request
-            const requestBody = {
+            // Build request body, only add authentication if authToken is present
+            const requestBody: any = {
                 ...request,
             };
-            // Only include authentication if authToken is present
             if (this.config.authToken) {
-                requestBody.authentication = {
+                (requestBody as any).authentication = {
                     token: this.config.authToken,
                 };
             }
