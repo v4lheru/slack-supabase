@@ -131,9 +131,10 @@ async function processFunctionCalls(functionCalls: FunctionCall[]): Promise<stri
 // Handle message events
 import axios from 'axios';
 
-async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string): Promise<string> {
-    // Download the file to a temp location
-    const tempFilePath = `/tmp/${Date.now()}-audio-upload`;
+async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string, filetype?: string): Promise<string> {
+    // Use the filetype from Slack if available, default to mp3
+    const ext = filetype ? filetype.toLowerCase() : 'mp3';
+    const tempFilePath = `/tmp/${Date.now()}-audio-upload.${ext}`;
     const writer = require('fs').createWriteStream(tempFilePath);
 
     // Add Slack auth header if needed
@@ -156,7 +157,8 @@ async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string): Prom
     // Prepare form data for OpenAI API
     const FormData = require('form-data');
     const formData = new FormData();
-    formData.append('file', require('fs').createReadStream(tempFilePath));
+    // Pass the filename explicitly so OpenAI can infer the format
+    formData.append('file', require('fs').createReadStream(tempFilePath), { filename: `audio.${ext}` });
     formData.append('model', 'gpt-4o-transcribe');
     if (prompt) {
         formData.append('prompt', prompt);
@@ -226,10 +228,9 @@ app.message(async ({ message, client, context }) => {
         let postedTranscript = false;
 
         if (files.length > 0) {
-            // Only process audio files
+            // Accept all OpenAI-supported audio types, including mp4
             const audioFile = files.find((f: any) =>
-                // Only allow formats supported by OpenAI's transcription API
-                ['mp3', 'mpeg', 'mpga', 'm4a', 'wav', 'webm'].includes((f.filetype || '').toLowerCase())
+                ['mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'wav', 'webm', 'flac', 'ogg', 'oga'].includes((f.filetype || '').toLowerCase())
             );
             if (audioFile && audioFile.url_private_download) {
                 // Download and transcribe
@@ -237,7 +238,7 @@ app.message(async ({ message, client, context }) => {
                 // Use the user's message as prompt if present
                 const userPrompt = message.text || undefined;
                 logger.info(`${logEmoji.info} Starting transcription for uploaded audio file: ${fileUrl}`);
-                transcript = await transcribeAudioWithOpenAI(fileUrl, userPrompt);
+                transcript = await transcribeAudioWithOpenAI(fileUrl, userPrompt, audioFile.filetype);
 
                 // Post the raw transcript in a code block
                 const threadInfo: ThreadInfo = {
@@ -283,19 +284,6 @@ app.message(async ({ message, client, context }) => {
                     logger.info(`${logEmoji.info} Not sending transcript to AI model (not a DM or wiz channel)`);
                 }
                 // For non-wiz channels and non-DMs, do not send to AI, only post transcript
-                return;
-            } else if (files.some((f: any) => (f.filetype || '').toLowerCase() === 'mp4')) {
-                logger.warn(`${logEmoji.warning} MP4 audio file detected, but OpenAI transcription does not support mp4. Please upload as mp3, m4a, wav, webm, mpga, or mpeg.`);
-                const threadInfo: ThreadInfo = {
-                    channelId: message.channel,
-                    threadTs: 'thread_ts' in message && message.thread_ts ? message.thread_ts : message.ts,
-                    userId: message.user,
-                };
-                await client.chat.postMessage({
-                    channel: threadInfo.channelId,
-                    thread_ts: threadInfo.threadTs,
-                    text: `:warning: Sorry, audio transcription is only supported for mp3, m4a, wav, webm, mpga, or mpeg files. Please convert your audio and try again.`,
-                });
                 return;
             }
         }
