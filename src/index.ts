@@ -35,12 +35,18 @@ async function initializeComponents() {
             throw new Error('Missing required OpenRouter API key');
         }
 
-        if (!env.MCP_SERVER_URL || !env.MCP_AUTH_TOKEN) {
-            throw new Error('Missing required MCP server configuration');
+        // MCP is optional: only warn if not set, don't throw
+        if (!env.MCP_SERVER_URL) {
+            logger.warn(`${logEmoji.warning} MCP server URL not set. Function calling will be disabled.`);
+        }
+        if (env.MCP_SERVER_URL && !env.MCP_AUTH_TOKEN) {
+            logger.warn(`${logEmoji.warning} MCP auth token not set. Connecting to MCP without authentication.`);
         }
 
-        // Log that MCP client is ready
-        logger.info(`${logEmoji.mcp} MCP client ready to use`);
+        // Log that MCP client is ready (if configured)
+        if (env.MCP_SERVER_URL) {
+            logger.info(`${logEmoji.mcp} MCP client ready to use`);
+        }
 
         // Initialize AI client
         const aiClient = new OpenRouterClient();
