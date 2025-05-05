@@ -19,6 +19,9 @@ export interface EnvironmentVariables {
     // OpenRouter
     OPENROUTER_API_KEY: string;
 
+    // OpenAI (for direct API calls, e.g. audio transcription)
+    OPENAI_API_KEY?: string;
+
     // MCP
     MCP_SERVER_URL: string;
     MCP_AUTH_TOKEN: string;

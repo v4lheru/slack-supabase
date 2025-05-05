@@ -164,9 +164,11 @@ async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string): Prom
     formData.append('response_format', 'text');
 
     logger.info(`${logEmoji.info} Sending audio file to OpenAI for transcription...`);
+    // Prefer OPENAI_API_KEY for direct OpenAI calls, fallback to OPENROUTER_API_KEY for legacy support
+    const openaiApiKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
     logger.info(`[DEBUG] OpenAI transcription headers: ${JSON.stringify({
         ...formData.getHeaders(),
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
     })}`);
     // Call OpenAI API
     try {
@@ -176,7 +178,7 @@ async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string): Prom
             {
                 headers: {
                     ...formData.getHeaders(),
-                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY}`,
+                    'Authorization': `Bearer ${openaiApiKey}`,
                 },
             }
         );
