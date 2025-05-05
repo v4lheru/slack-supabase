@@ -199,7 +199,10 @@ app.message(async ({ message, client, context }) => {
         }
 
         // Check for file uploads
-        const files = (message.files && Array.isArray(message.files)) ? message.files : [];
+        // Defensive: files may not exist on all message types, so use optional chaining and fallback to []
+        const files: any[] = (message as any)?.files && Array.isArray((message as any).files)
+            ? (message as any).files
+            : [];
         let transcript: string | undefined;
         let postedTranscript = false;
 
