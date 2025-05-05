@@ -16,7 +16,6 @@ export enum OpenRouterModelId {
 
     // OpenAI models
     GPT4O_LATEST = 'openai/chatgpt-4o-latest',
-    GPT35_TURBO = 'openai/gpt-3.5-turbo',
 
     // Anthropic models
     CLAUDE_3_7_SONNET = 'anthropic/claude-3.7-sonnet',
@@ -73,18 +72,6 @@ export const OPENROUTER_MODELS: Record<OpenRouterModelId, ModelInfo> = {
             streaming: true,
         },
         contextWindow: 128000,
-        maxOutputTokens: 4096,
-    },
-    [OpenRouterModelId.GPT35_TURBO]: {
-        id: OpenRouterModelId.GPT35_TURBO,
-        name: 'GPT-3.5 Turbo',
-        provider: 'OpenAI',
-        capabilities: {
-            functionCalling: true,
-            vision: false,
-            streaming: true,
-        },
-        contextWindow: 16385,
         maxOutputTokens: 4096,
     },
 
