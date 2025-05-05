@@ -11,6 +11,9 @@ import { ModelInfo } from '../interfaces/provider';
  * OpenRouter model IDs
  */
 export enum OpenRouterModelId {
+    // Qwen models
+    QWEN3_235B_A22B = 'qwen/qwen3-235b-a22b',
+
     // OpenAI models
     GPT4O_LATEST = 'openai/chatgpt-4o-latest',
     GPT4_TURBO = 'openai/gpt-4-turbo',
@@ -42,12 +45,26 @@ export enum OpenRouterModelId {
 /**
  * Default model to use if none specified
  */
-export const DEFAULT_MODEL = OpenRouterModelId.GPT4O_LATEST;
+export const DEFAULT_MODEL = OpenRouterModelId.QWEN3_235B_A22B;
 
 /**
  * Model information for OpenRouter models
  */
 export const OPENROUTER_MODELS: Record<OpenRouterModelId, ModelInfo> = {
+    // Qwen models
+    [OpenRouterModelId.QWEN3_235B_A22B]: {
+        id: OpenRouterModelId.QWEN3_235B_A22B,
+        name: 'Qwen3 235B A22B',
+        provider: 'Qwen',
+        capabilities: {
+            functionCalling: true,
+            vision: false,
+            streaming: true,
+        },
+        contextWindow: 128000,
+        maxOutputTokens: 4096,
+    },
+
     // OpenAI models
     [OpenRouterModelId.GPT4O_LATEST]: {
         id: OpenRouterModelId.GPT4O_LATEST,

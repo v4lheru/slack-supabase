@@ -271,8 +271,8 @@ export class OpenRouterClient implements AIProvider {
                     sort: 'throughput'
                 };
 
-                // Override the model to use GPT-4o which is known to support tool calls
-                requestPayload.model = 'openai/gpt-4o';
+                // Override the model to use Qwen3 235B A22B which is known to support tool calls
+                requestPayload.model = 'qwen/qwen3-235b-a22b';
             }
 
             // Log request (excluding sensitive data)
