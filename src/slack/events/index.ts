@@ -228,7 +228,8 @@ app.message(async ({ message, client, context }) => {
         if (files.length > 0) {
             // Only process audio files
             const audioFile = files.find((f: any) =>
-                ['mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'wav', 'webm'].includes((f.filetype || '').toLowerCase())
+                // Only allow formats supported by OpenAI's transcription API
+                ['mp3', 'mpeg', 'mpga', 'm4a', 'wav', 'webm'].includes((f.filetype || '').toLowerCase())
             );
             if (audioFile && audioFile.url_private_download) {
                 // Download and transcribe
@@ -282,6 +283,19 @@ app.message(async ({ message, client, context }) => {
                     logger.info(`${logEmoji.info} Not sending transcript to AI model (not a DM or wiz channel)`);
                 }
                 // For non-wiz channels and non-DMs, do not send to AI, only post transcript
+                return;
+            } else if (files.some((f: any) => (f.filetype || '').toLowerCase() === 'mp4')) {
+                logger.warn(`${logEmoji.warning} MP4 audio file detected, but OpenAI transcription does not support mp4. Please upload as mp3, m4a, wav, webm, mpga, or mpeg.`);
+                const threadInfo: ThreadInfo = {
+                    channelId: message.channel,
+                    threadTs: 'thread_ts' in message && message.thread_ts ? message.thread_ts : message.ts,
+                    userId: message.user,
+                };
+                await client.chat.postMessage({
+                    channel: threadInfo.channelId,
+                    thread_ts: threadInfo.threadTs,
+                    text: `:warning: Sorry, audio transcription is only supported for mp3, m4a, wav, webm, mpga, or mpeg files. Please convert your audio and try again.`,
+                });
                 return;
             }
         }
