@@ -63,13 +63,18 @@ export class MCPClient {
         };
 
         // Create axios client with default configuration
+        // Only set Authorization header if authToken is present
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+        if (this.config.authToken) {
+            headers['Authorization'] = `Bearer ${this.config.authToken}`;
+        }
+
         this.client = axios.create({
             baseURL: this.config.serverUrl,
             timeout: this.config.timeout,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.config.authToken}`,
-            },
+            headers,
         });
 
         logger.info(`${logEmoji.mcp} MCP client initialized with server URL: ${this.config.serverUrl}`);
@@ -88,14 +93,19 @@ export class MCPClient {
             });
 
             // Make the API request
+            const requestBody = {
+                ...request,
+            };
+            // Only include authentication if authToken is present
+            if (this.config.authToken) {
+                requestBody.authentication = {
+                    token: this.config.authToken,
+                };
+            }
+
             const response = await this.client.post<MCPResponse>(
                 '/call',
-                {
-                    ...request,
-                    authentication: {
-                        token: this.config.authToken,
-                    },
-                }
+                requestBody
             );
 
             // Extract the response
