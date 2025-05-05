@@ -129,13 +129,67 @@ async function processFunctionCalls(functionCalls: FunctionCall[]): Promise<stri
 }
 
 // Handle message events
+import axios from 'axios';
+
+async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string): Promise<string> {
+    // Download the file to a temp location
+    const tempFilePath = `/tmp/${Date.now()}-audio-upload`;
+    const writer = require('fs').createWriteStream(tempFilePath);
+
+    // Add Slack auth header if needed
+    const headers: Record<string, string> = {};
+    if (process.env.SLACK_BOT_TOKEN) {
+        headers['Authorization'] = `Bearer ${process.env.SLACK_BOT_TOKEN}`;
+    }
+
+    logger.info(`${logEmoji.info} Downloading audio file from Slack: ${fileUrl}`);
+    const response = await axios.get(fileUrl, { responseType: 'stream', headers });
+    response.data.pipe(writer);
+    await new Promise((resolve, reject) => {
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+    });
+
+    logger.info(`${logEmoji.info} Audio file downloaded to: ${tempFilePath}`);
+
+    // Prepare form data for OpenAI API
+    const FormData = require('form-data');
+    const formData = new FormData();
+    formData.append('file', require('fs').createReadStream(tempFilePath));
+    formData.append('model', 'gpt-4o-transcribe');
+    if (prompt) {
+        formData.append('prompt', prompt);
+    }
+    formData.append('response_format', 'text');
+
+    logger.info(`${logEmoji.info} Sending audio file to OpenAI for transcription...`);
+    // Call OpenAI API
+    const openaiResponse = await axios.post(
+        'https://api.openai.com/v1/audio/transcriptions',
+        formData,
+        {
+            headers: {
+                ...formData.getHeaders(),
+                'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY}`,
+            },
+        }
+    );
+
+    logger.info(`${logEmoji.info} Received transcription from OpenAI`);
+
+    // Clean up temp file
+    require('fs').unlinkSync(tempFilePath);
+
+    return openaiResponse.data.text;
+}
+
 app.message(async ({ message, client, context }) => {
     try {
         logger.debug(`${logEmoji.slack} Received message event: ${JSON.stringify(message)}`);
 
-        // Ensure we have a proper message with a user and text
-        if (!('user' in message) || !message.user || !('text' in message) || !message.text) {
-            logger.debug(`${logEmoji.slack} Ignoring message without user or text content`);
+        // Ensure we have a proper message with a user
+        if (!('user' in message) || !message.user) {
+            logger.debug(`${logEmoji.slack} Ignoring message without user`);
             return;
         }
 
@@ -144,15 +198,77 @@ app.message(async ({ message, client, context }) => {
             return;
         }
 
-        // Only respond in DMs or if channel name starts with "wiz"
-        // message.channel_type === 'im' for DMs
-        // For channels, need to fetch channel info to get the name
-        let shouldRespond = false;
+        // Check for file uploads
+        const files = (message.files && Array.isArray(message.files)) ? message.files : [];
+        let transcript: string | undefined;
+        let postedTranscript = false;
 
+        if (files.length > 0) {
+            // Only process audio files
+            const audioFile = files.find((f: any) =>
+                ['mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'wav', 'webm'].includes((f.filetype || '').toLowerCase())
+            );
+            if (audioFile && audioFile.url_private_download) {
+                // Download and transcribe
+                const fileUrl = audioFile.url_private_download;
+                // Use the user's message as prompt if present
+                const userPrompt = message.text || undefined;
+                logger.info(`${logEmoji.info} Starting transcription for uploaded audio file: ${fileUrl}`);
+                transcript = await transcribeAudioWithOpenAI(fileUrl, userPrompt);
+
+                // Post the raw transcript in a code block
+                const threadInfo: ThreadInfo = {
+                    channelId: message.channel,
+                    threadTs: 'thread_ts' in message && message.thread_ts ? message.thread_ts : message.ts,
+                    userId: message.user,
+                };
+                logger.info(`${logEmoji.info} Posting transcript to Slack thread ${threadInfo.threadTs}`);
+                await client.chat.postMessage({
+                    channel: threadInfo.channelId,
+                    thread_ts: threadInfo.threadTs,
+                    text: `Transcript:\n\`\`\`\n${transcript}\n\`\`\``,
+                });
+                postedTranscript = true;
+
+                // Only for DMs and "wiz" channels, also send transcript+user message to the AI model
+                let shouldRespond = false;
+                let isWizChannel = false;
+                if (message.channel_type === 'im') {
+                    shouldRespond = true;
+                } else if (message.channel_type === 'channel' || message.channel_type === 'group') {
+                    try {
+                        const channelInfo = await client.conversations.info({ channel: message.channel });
+                        const channelName = channelInfo.channel?.name || '';
+                        if (channelName.startsWith('wiz')) {
+                            shouldRespond = true;
+                            isWizChannel = true;
+                        }
+                    } catch (err) {
+                        logger.error(`${logEmoji.error} Failed to fetch channel info for channel ${message.channel}`, { err });
+                    }
+                }
+
+                if (shouldRespond) {
+                    // Compose input: transcript + user message (if any)
+                    let aiInput = transcript;
+                    if (message.text && message.text.trim()) {
+                        aiInput = `${transcript}\n\nUser message: ${message.text}`;
+                    }
+                    logger.info(`${logEmoji.info} Sending transcript and user message to AI model for thread ${threadInfo.threadTs}`);
+                    await processMessageAndGenerateResponse(threadInfo, aiInput, client);
+                } else {
+                    logger.info(`${logEmoji.info} Not sending transcript to AI model (not a DM or wiz channel)`);
+                }
+                // For non-wiz channels and non-DMs, do not send to AI, only post transcript
+                return;
+            }
+        }
+
+        // Only respond in DMs or if channel name starts with "wiz"
+        let shouldRespond = false;
         if (message.channel_type === 'im') {
             shouldRespond = true;
         } else if (message.channel_type === 'channel' || message.channel_type === 'group') {
-            // Fetch channel info to get the name
             try {
                 const channelInfo = await client.conversations.info({ channel: message.channel });
                 const channelName = channelInfo.channel?.name || '';
@@ -169,15 +285,15 @@ app.message(async ({ message, client, context }) => {
             return;
         }
 
-        // Create thread info
-        const threadInfo: ThreadInfo = {
-            channelId: message.channel,
-            threadTs: 'thread_ts' in message && message.thread_ts ? message.thread_ts : message.ts,
-            userId: message.user,
-        };
-
-        // Process the message and generate a response
-        await processMessageAndGenerateResponse(threadInfo, message.text, client);
+        // Only process text if not already handled as audio
+        if (!postedTranscript && message.text) {
+            const threadInfo: ThreadInfo = {
+                channelId: message.channel,
+                threadTs: 'thread_ts' in message && message.thread_ts ? message.thread_ts : message.ts,
+                userId: message.user,
+            };
+            await processMessageAndGenerateResponse(threadInfo, message.text, client);
+        }
     } catch (error) {
         logger.error(`${logEmoji.error} Error handling message event`, { error });
     }
