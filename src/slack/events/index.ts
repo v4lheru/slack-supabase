@@ -129,7 +129,7 @@ async function processFunctionCalls(functionCalls: FunctionCall[]): Promise<stri
 }
 
 // Handle message events
-app.message(async ({ message, client }) => {
+app.message(async ({ message, client, context }) => {
     try {
         logger.debug(`${logEmoji.slack} Received message event: ${JSON.stringify(message)}`);
 
@@ -141,6 +141,31 @@ app.message(async ({ message, client }) => {
 
         // Ignore messages from the bot itself
         if (botUserId && message.user === botUserId) {
+            return;
+        }
+
+        // Only respond in DMs or if channel name starts with "wiz"
+        // message.channel_type === 'im' for DMs
+        // For channels, need to fetch channel info to get the name
+        let shouldRespond = false;
+
+        if (message.channel_type === 'im') {
+            shouldRespond = true;
+        } else if (message.channel_type === 'channel' || message.channel_type === 'group') {
+            // Fetch channel info to get the name
+            try {
+                const channelInfo = await client.conversations.info({ channel: message.channel });
+                const channelName = channelInfo.channel?.name || '';
+                if (channelName.startsWith('wiz')) {
+                    shouldRespond = true;
+                }
+            } catch (err) {
+                logger.error(`${logEmoji.error} Failed to fetch channel info for channel ${message.channel}`, { err });
+            }
+        }
+
+        if (!shouldRespond) {
+            logger.debug(`${logEmoji.slack} Not responding: not a DM and channel name does not start with "wiz"`);
             return;
         }
 
