@@ -16,9 +16,6 @@ export enum OpenRouterModelId {
 
     // OpenAI models
     GPT4O_LATEST = 'openai/chatgpt-4o-latest',
-    GPT4_TURBO = 'openai/gpt-4-turbo',
-    GPT4_VISION = 'openai/gpt-4-vision',
-    GPT4 = 'openai/gpt-4',
     GPT35_TURBO = 'openai/gpt-3.5-turbo',
 
     // Anthropic models
@@ -76,42 +73,6 @@ export const OPENROUTER_MODELS: Record<OpenRouterModelId, ModelInfo> = {
             streaming: true,
         },
         contextWindow: 128000,
-        maxOutputTokens: 4096,
-    },
-    [OpenRouterModelId.GPT4_TURBO]: {
-        id: OpenRouterModelId.GPT4_TURBO,
-        name: 'GPT-4 Turbo',
-        provider: 'OpenAI',
-        capabilities: {
-            functionCalling: true,
-            vision: false,
-            streaming: true,
-        },
-        contextWindow: 128000,
-        maxOutputTokens: 4096,
-    },
-    [OpenRouterModelId.GPT4_VISION]: {
-        id: OpenRouterModelId.GPT4_VISION,
-        name: 'GPT-4 Vision',
-        provider: 'OpenAI',
-        capabilities: {
-            functionCalling: true,
-            vision: true,
-            streaming: true,
-        },
-        contextWindow: 128000,
-        maxOutputTokens: 4096,
-    },
-    [OpenRouterModelId.GPT4]: {
-        id: OpenRouterModelId.GPT4,
-        name: 'GPT-4',
-        provider: 'OpenAI',
-        capabilities: {
-            functionCalling: true,
-            vision: false,
-            streaming: true,
-        },
-        contextWindow: 8192,
         maxOutputTokens: 4096,
     },
     [OpenRouterModelId.GPT35_TURBO]: {
