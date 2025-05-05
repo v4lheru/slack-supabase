@@ -271,8 +271,8 @@ export class OpenRouterClient implements AIProvider {
                     sort: 'throughput'
                 };
 
-                // Override the model to use Mistral Small which is known to support tool calls
-                requestPayload.model = 'mistral/mistral-small';
+                // Override the model to use Mistral Small 24B Instruct 2501 which is known to support tool calls
+                requestPayload.model = 'mistralai/mistral-small-24b-instruct-2501';
             }
 
             // Log request (excluding sensitive data)

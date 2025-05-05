@@ -33,7 +33,7 @@ You can call functions when needed to perform actions or retrieve information.`;
  */
 export const OPENROUTER_CONFIG = {
     BASE_URL: 'https://openrouter.ai/api/v1',
-    DEFAULT_MODEL: 'mistral/mistral-small',
+    DEFAULT_MODEL: 'mistralai/mistral-small-24b-instruct-2501',
     DEFAULT_TEMPERATURE: 0.7,
     DEFAULT_MAX_TOKENS: 1024,
     DEFAULT_TOP_P: 0.9,

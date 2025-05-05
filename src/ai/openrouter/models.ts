@@ -33,9 +33,9 @@ export enum OpenRouterModelId {
     LLAMA3_8B = 'meta/llama-3-8b',
 
     // Mistral models
-    MISTRAL_LARGE = 'mistral/mistral-large',
-    MISTRAL_MEDIUM = 'mistral/mistral-medium',
-    MISTRAL_SMALL = 'mistral/mistral-small',
+    MISTRAL_LARGE = 'mistralai/mistral-large',
+    MISTRAL_MEDIUM = 'mistralai/mistral-medium',
+    MISTRAL_SMALL = 'mistralai/mistral-small-24b-instruct-2501',
 }
 
 /**
@@ -216,7 +216,7 @@ export const OPENROUTER_MODELS: Record<OpenRouterModelId, ModelInfo> = {
     },
     [OpenRouterModelId.MISTRAL_SMALL]: {
         id: OpenRouterModelId.MISTRAL_SMALL,
-        name: 'Mistral Small',
+        name: 'Mistral Small 24B Instruct 2501',
         provider: 'Mistral',
         capabilities: {
             functionCalling: false,
