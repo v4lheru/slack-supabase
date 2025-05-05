@@ -143,6 +143,7 @@ async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string): Prom
     }
 
     logger.info(`${logEmoji.info} Downloading audio file from Slack: ${fileUrl}`);
+    logger.info(`[DEBUG] Slack download headers: ${JSON.stringify(headers)}`);
     const response = await axios.get(fileUrl, { responseType: 'stream', headers });
     response.data.pipe(writer);
     await new Promise((resolve, reject) => {
@@ -163,24 +164,40 @@ async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string): Prom
     formData.append('response_format', 'text');
 
     logger.info(`${logEmoji.info} Sending audio file to OpenAI for transcription...`);
+    logger.info(`[DEBUG] OpenAI transcription headers: ${JSON.stringify({
+        ...formData.getHeaders(),
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY}`,
+    })}`);
     // Call OpenAI API
-    const openaiResponse = await axios.post(
-        'https://api.openai.com/v1/audio/transcriptions',
-        formData,
-        {
-            headers: {
-                ...formData.getHeaders(),
-                'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY}`,
-            },
+    try {
+        const openaiResponse = await axios.post(
+            'https://api.openai.com/v1/audio/transcriptions',
+            formData,
+            {
+                headers: {
+                    ...formData.getHeaders(),
+                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY}`,
+                },
+            }
+        );
+
+        logger.info(`${logEmoji.info} Received transcription from OpenAI`);
+        logger.info(`[DEBUG] OpenAI transcription response: ${JSON.stringify(openaiResponse.data)}`);
+
+        // Clean up temp file
+        require('fs').unlinkSync(tempFilePath);
+
+        return openaiResponse.data.text;
+    } catch (err: any) {
+        logger.error(`[DEBUG] OpenAI transcription error: ${err?.message || err}`);
+        if (err?.response) {
+            logger.error(`[DEBUG] OpenAI error response data: ${JSON.stringify(err.response.data)}`);
+            logger.error(`[DEBUG] OpenAI error response headers: ${JSON.stringify(err.response.headers)}`);
         }
-    );
-
-    logger.info(`${logEmoji.info} Received transcription from OpenAI`);
-
-    // Clean up temp file
-    require('fs').unlinkSync(tempFilePath);
-
-    return openaiResponse.data.text;
+        // Clean up temp file even on error
+        try { require('fs').unlinkSync(tempFilePath); } catch {}
+        throw err;
+    }
 }
 
 app.message(async ({ message, client, context }) => {
