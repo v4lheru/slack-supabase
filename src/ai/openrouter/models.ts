@@ -42,7 +42,7 @@ export enum OpenRouterModelId {
 /**
  * Default model to use if none specified
  */
-export const DEFAULT_MODEL = OpenRouterModelId.QWEN3_235B_A22B;
+export const DEFAULT_MODEL = OpenRouterModelId.MISTRAL_SMALL;
 
 /**
  * Model information for OpenRouter models

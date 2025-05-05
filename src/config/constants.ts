@@ -33,7 +33,7 @@ You can call functions when needed to perform actions or retrieve information.`;
  */
 export const OPENROUTER_CONFIG = {
     BASE_URL: 'https://openrouter.ai/api/v1',
-    DEFAULT_MODEL: 'qwen/qwen3-235b-a22b',
+    DEFAULT_MODEL: 'mistral/mistral-small',
     DEFAULT_TEMPERATURE: 0.7,
     DEFAULT_MAX_TOKENS: 1024,
     DEFAULT_TOP_P: 0.9,
