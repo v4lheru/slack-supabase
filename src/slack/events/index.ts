@@ -260,10 +260,12 @@ app.message(async ({ message, client, context }) => {
                     userId: message.user,
                 };
                 logger.info(`${logEmoji.info} Posting transcript to Slack thread ${threadInfo.threadTs}`);
+                // Strip trailing newlines from transcript to avoid extra empty line in code block
+                const cleanedTranscript = typeof transcript === 'string' ? transcript.replace(/[\r\n]+$/, '') : transcript;
                 await client.chat.postMessage({
                     channel: threadInfo.channelId,
                     thread_ts: threadInfo.threadTs,
-                    text: `Transcript:\n\`\`\`\n${transcript}\n\`\`\``,
+                    text: `Transcript:\n\`\`\`\n${cleanedTranscript}\n\`\`\``,
                 });
                 postedTranscript = true;
 
