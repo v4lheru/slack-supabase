@@ -24,7 +24,7 @@ const MAX_CONVERSATION_MESSAGES = 20;
  */
 export function formatConversationHistory(
     messages: ConversationMessage[],
-    modelId: string = OpenRouterModelId.GPT4_TURBO
+    modelId: string = OpenRouterModelId.MISTRAL_SMALL
 ): ConversationMessage[] {
     try {
         // Limit the number of messages to prevent exceeding token limits
