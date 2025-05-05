@@ -191,7 +191,10 @@ async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string, filet
         // Clean up temp file
         require('fs').unlinkSync(tempFilePath);
 
-        // Defensive: OpenAI returns { text: ... } for text, or { text: undefined } if it failed
+        // Defensive: OpenAI returns { text: ... } for JSON, or a string for 'text' response_format
+        if (typeof openaiResponse.data === 'string') {
+            return openaiResponse.data;
+        }
         if (typeof openaiResponse.data.text === 'undefined' || openaiResponse.data.text === null) {
             logger.warn(`${logEmoji.warning} OpenAI transcription returned undefined or null text`);
             return '[transcriptie niet beschikbaar]';
