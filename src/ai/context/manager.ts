@@ -5,13 +5,13 @@
  * It handles storing, retrieving, and updating conversation history.
  */
 
-import { ConversationMessage } from '../interfaces/provider';
+import { ConversationMessage, MessageRole } from '../interfaces/provider';
 import { logger, logEmoji } from '../../utils/logger';
 import { DEFAULT_SYSTEM_MESSAGE } from '../../config/constants';
 
-function createSystemMessage(content: string) {
+function createSystemMessage(content: string): ConversationMessage {
     return {
-        role: 'system',
+        role: 'system' as MessageRole,
         content,
         timestamp: new Date().toISOString(),
     };
@@ -96,7 +96,7 @@ export class ContextManager {
         threadId: string,
         channelId: string,
         userId?: string,
-        systemMessage: ConversationMessage = DEFAULT_SYSTEM_MESSAGE
+        systemMessage: string = DEFAULT_SYSTEM_MESSAGE
     ): ConversationContext {
         // Check if we need to evict old contexts
         if (this.contexts.size >= this.maxContexts) {
@@ -108,7 +108,7 @@ export class ContextManager {
             threadId,
             channelId,
             userId,
-            messages: [systemMessage],
+            messages: [createSystemMessage(systemMessage)],
             lastUpdated: new Date(),
         };
 
