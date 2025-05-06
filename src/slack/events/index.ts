@@ -35,7 +35,7 @@ app.event('app_home_opened', async ({ client }) => {
  */
 async function processMessageAndGenerateResponse(
     threadInfo: ThreadInfo,
-    messageTextOrContent: string,
+    messageTextOrContent: string | MessageContent[],
     client: any
 ): Promise<void> {
     let thinkingMessageTs: string | undefined;
@@ -352,6 +352,46 @@ app.message(async ({ message, client, context }) => {
             : [];
         let transcript: string | undefined;
         let postedTranscript = false;
+
+        // --- Detect and handle image uploads (jpg, png, gif, webp, etc.) ---
+        const imageFileTypes = ['jpg','jpeg','png','gif','webp','bmp','tiff'];
+        const imageFiles = files.filter((f: any) =>
+            imageFileTypes.includes((f.filetype || '').toLowerCase())
+        );
+
+        if (imageFiles.length) {
+            // Make each file public and collect the public URLs
+            const publicUrls: string[] = [];
+            for (const f of imageFiles) {
+                let url = f.permalink_public;
+                if (!url) {
+                    const shared = await client.files.sharedPublicURL({ file: f.id });
+                    url = shared.file?.permalink_public;
+                }
+                if (url) publicUrls.push(url);
+            }
+
+            // Combine optional text + all images into multimodal content
+            const multimodalContent: MessageContent[] = [];
+            if (message.text && message.text.trim()) {
+                multimodalContent.push({ type: 'text', text: message.text.trim() });
+            }
+            multimodalContent.push(
+                ...publicUrls.map(url => ({
+                    type: 'image_url',
+                    image_url: { url, detail: 'auto' as const },
+                }))
+            );
+
+            const threadInfo: ThreadInfo = {
+                channelId: message.channel,
+                threadTs: 'thread_ts' in message && message.thread_ts ? message.thread_ts : message.ts,
+                userId: message.user,
+            };
+
+            await processMessageAndGenerateResponse(threadInfo, multimodalContent, client);
+            return; // text + images already handled
+        }
 
         if (files.length > 0) {
             // Accept all OpenAI-supported audio types, including mp4
