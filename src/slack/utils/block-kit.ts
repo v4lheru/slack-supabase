@@ -441,15 +441,6 @@ export function aiResponseMessage(
         );
     }
 
-    // Add feedback buttons
-    blocks.push(
-        divider(),
-        actions([
-            button('👍 Helpful', 'feedback_helpful', 'helpful'),
-            button('👎 Not Helpful', 'feedback_not_helpful', 'not_helpful'),
-        ]),
-    );
-
     return {
         blocks,
         text: safeContent.substring(0, 100) + (safeContent.length > 100 ? '...' : ''),
