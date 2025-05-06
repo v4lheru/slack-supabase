@@ -418,18 +418,34 @@ export function aiResponseMessage(
 
     // Split content into chunks for Slack section blocks
     // Prefer splitting on double newlines, but also enforce a max length per block
-    const MAX_BLOCK_TEXT_LENGTH = 2500;
+    const MAX_BLOCK_TEXT_LENGTH = 900;
     function splitContentToSections(text: string): string[] {
-        const paragraphs = text.split(/\n\s*\n/);
         const sections: string[] = [];
-        for (let para of paragraphs) {
-            // If a paragraph is too long, split it further
-            while (para.length > MAX_BLOCK_TEXT_LENGTH) {
-                sections.push(para.slice(0, MAX_BLOCK_TEXT_LENGTH));
-                para = para.slice(MAX_BLOCK_TEXT_LENGTH);
+        let remaining = text;
+
+        while (remaining.length > 0) {
+            if (remaining.length <= MAX_BLOCK_TEXT_LENGTH) {
+                sections.push(remaining);
+                break;
             }
-            if (para.length > 0) {
-                sections.push(para);
+
+            // Try to split at the end of a sentence within the limit
+            const slice = remaining.slice(0, MAX_BLOCK_TEXT_LENGTH);
+            let splitIdx = slice.lastIndexOf('. ');
+            if (splitIdx === -1) splitIdx = slice.lastIndexOf('! ');
+            if (splitIdx === -1) splitIdx = slice.lastIndexOf('? ');
+            if (splitIdx === -1) splitIdx = slice.lastIndexOf('\n\n');
+            if (splitIdx === -1) splitIdx = slice.lastIndexOf('\n');
+            if (splitIdx === -1) splitIdx = slice.lastIndexOf(' ');
+
+            if (splitIdx > 0 && splitIdx > MAX_BLOCK_TEXT_LENGTH * 0.5) {
+                // Split at the found punctuation/space
+                sections.push(remaining.slice(0, splitIdx + 1).trim());
+                remaining = remaining.slice(splitIdx + 1).trim();
+            } else {
+                // No good split point, just hard split
+                sections.push(slice.trim());
+                remaining = remaining.slice(MAX_BLOCK_TEXT_LENGTH).trim();
             }
         }
         return sections;
