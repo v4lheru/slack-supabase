@@ -23,7 +23,7 @@ class ChatResponse(BaseModel):
 @app.post("/generate", response_model=ChatResponse)
 async def generate(req: ChatRequest):
     messages = req.history + [{"role": "user", "content": req.prompt}]
-    mcp_context = RunnerContext()
+    mcp_context = RunnerContext(mcp_config_path="mcp_agent.config.yaml")
     run = await Runner.run(_agent, messages, context=mcp_context)
     out = await run.final_output()
     return ChatResponse(content=out.content, metadata={"model": _agent.model})
