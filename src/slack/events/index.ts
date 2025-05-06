@@ -12,7 +12,6 @@ import { contextManager } from '../../ai/context/manager';
 import * as conversationUtils from '../utils/conversation';
 import * as blockKit from '../utils/block-kit';
 import { ThreadInfo } from '../utils/conversation';
-import { KnownBlock } from '@slack/bolt';
 import * as os from 'os';
 import * as path from 'path';
 
@@ -45,6 +44,32 @@ async function processMessageAndGenerateResponse(
     let finalMetadata: Record<string, any> | undefined;
 
     try {
+        // --- START TOEGEVOEGDE CODE ---
+        // Haal botUserId op indien nog niet bekend
+        if (!botUserId) {
+            try {
+                logger.info(`${logEmoji.slack} Bot user ID not initialized, fetching...`);
+                const authInfo = await client.auth.test();
+                botUserId = authInfo.user_id;
+                if (!botUserId) {
+                    throw new Error('Failed to get bot user ID from auth.test');
+                }
+                logger.info(`${logEmoji.slack} Bot user ID initialized: ${botUserId}`);
+            } catch (authError) {
+                logger.error(`${logEmoji.error} CRITICAL: Could not determine bot user ID. Cannot process message.`, { authError });
+                await conversationUtils.sendErrorMessage(
+                    app,
+                    threadInfo,
+                    'Bot Initialization Error',
+                    'Sorry, I could not retrieve my own user ID. Please notify an administrator.'
+                );
+                return;
+            }
+        }
+        // Hierna is botUserId gegarandeerd een string
+        const currentBotUserIdForHistory = botUserId;
+        // --- EINDE TOEGEVOEGDE CODE ---
+
         // 1. Send initial "Thinking..." message
         const thinkingMessage = await client.chat.postMessage({
             channel: threadInfo.channelId,
@@ -56,11 +81,7 @@ async function processMessageAndGenerateResponse(
         logger.debug(`${logEmoji.slack} Sent thinking message ${thinkingMessageTs} to thread ${threadInfo.threadTs}`);
 
         // 2. Initialize context (fetch history etc.)
-        if (!botUserId) {
-            const authInfo = await client.auth.test();
-            botUserId = authInfo.user_id || '';
-        }
-        await conversationUtils.initializeContextFromHistory(app, threadInfo, botUserId);
+        await conversationUtils.initializeContextFromHistory(app, threadInfo, currentBotUserIdForHistory);
         const conversationHistory = conversationUtils.getThreadHistory(threadInfo);
         conversationUtils.addUserMessageToThread(threadInfo, messageTextOrContent);
 
@@ -86,7 +107,7 @@ async function processMessageAndGenerateResponse(
                         app,
                         threadInfo.channelId,
                         lastMessageTs,
-                        messageUpdate.blocks as KnownBlock[],
+                        messageUpdate.blocks as any[],
                         messageUpdate.text + ' '
                     );
                     logger.debug(`${logEmoji.slack} Updated message ${lastMessageTs} with streamed content chunk.`);
@@ -112,7 +133,7 @@ async function processMessageAndGenerateResponse(
                 case 'tool_calls':
                     if (lastMessageTs) {
                         const finalChunkUpdate = blockKit.aiResponseMessage(accumulatedContent);
-                        await conversationUtils.updateMessage(app, threadInfo.channelId, lastMessageTs, finalChunkUpdate.blocks as KnownBlock[], finalChunkUpdate.text);
+                        await conversationUtils.updateMessage(app, threadInfo.channelId, lastMessageTs, finalChunkUpdate.blocks as any[], finalChunkUpdate.text);
                     }
                     const toolCallsData = event.data;
                     if (Array.isArray(toolCallsData) && toolCallsData.length > 0) {
@@ -139,7 +160,7 @@ async function processMessageAndGenerateResponse(
                         const toolResultData = event.data;
                         const resultSummary = typeof toolResultData === 'string' ? toolResultData.substring(0, 100) + '...' : '[resultaat ontvangen]';
                         const messageUpdate = blockKit.aiResponseMessage(`Tool \`${event.data?.tool_name || 'tool'}\` klaar. ${resultSummary}`);
-                        await conversationUtils.updateMessage(app, threadInfo.channelId, lastMessageTs, messageUpdate.blocks as KnownBlock[], messageUpdate.text);
+                        await conversationUtils.updateMessage(app, threadInfo.channelId, lastMessageTs, messageUpdate.blocks as any[], messageUpdate.text);
                         logger.info(`${logEmoji.slack} Updated tool usage message ${lastMessageTs} with result.`);
                     }
                     break;
@@ -158,7 +179,7 @@ async function processMessageAndGenerateResponse(
                     logger.error(`${logEmoji.error} Error received from agent stream:`, event.data);
                     if (lastMessageTs) {
                         const errorBlocks = blockKit.errorMessage('Agent Error', 'Er is een fout opgetreden bij de agent.', String(event.data));
-                        await conversationUtils.updateMessage(app, threadInfo.channelId, lastMessageTs, errorBlocks.blocks as KnownBlock[], errorBlocks.text);
+                        await conversationUtils.updateMessage(app, threadInfo.channelId, lastMessageTs, errorBlocks.blocks as any[], errorBlocks.text);
                     }
                     return;
 
@@ -176,7 +197,7 @@ async function processMessageAndGenerateResponse(
                 app,
                 threadInfo.channelId,
                 lastMessageTs,
-                finalMessage.blocks as KnownBlock[],
+                finalMessage.blocks as any[],
                 finalMessage.text
             );
             conversationUtils.addAssistantMessageToThread(threadInfo, accumulatedContent);
@@ -196,7 +217,7 @@ async function processMessageAndGenerateResponse(
                     app,
                     threadInfo.channelId,
                     thinkingMessageTs,
-                    errorBlocks.blocks as KnownBlock[],
+                    errorBlocks.blocks as any[],
                     errorBlocks.text
                 );
             } catch (updateError) {
