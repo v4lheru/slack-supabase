@@ -7,7 +7,15 @@
 
 import { ConversationMessage } from '../interfaces/provider';
 import { logger, logEmoji } from '../../utils/logger';
-import { createSystemMessage, DEFAULT_SYSTEM_MESSAGE } from '../openrouter/formatter';
+import { DEFAULT_SYSTEM_MESSAGE } from '../../config/constants';
+
+function createSystemMessage(content: string) {
+    return {
+        role: 'system',
+        content,
+        timestamp: new Date().toISOString(),
+    };
+}
 
 /**
  * Conversation context interface
