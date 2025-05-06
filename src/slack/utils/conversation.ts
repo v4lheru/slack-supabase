@@ -6,7 +6,7 @@
  */
 
 import { App } from '@slack/bolt';
-import { ConversationMessage, MessageRole, MessageContent } from '../../ai/interfaces/provider';
+import { ConversationMessage, MessageRole, MessageContent, ImageContent } from '../../ai/interfaces/provider';
 import { contextManager } from '../../ai/context/manager';
 import { logger, logEmoji } from '../../utils/logger';
 import * as blockKit from './block-kit';
