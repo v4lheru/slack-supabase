@@ -32,6 +32,7 @@ export class OpenAIClient implements AIProvider {
       name: fn.name,
       description: fn.description,
       parameters: fn.parameters,
+      strict: false,
     }));
 
     const res = await this.client.responses.create({
