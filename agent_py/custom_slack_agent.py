@@ -17,7 +17,7 @@ with open(os.path.join(os.path.dirname(__file__), "system_prompt.md"), "r", enco
 
 _agent = Agent(
     name="SlackAssistant",
-    model=os.getenv("AGENT_MODEL", "gpt-4o-mini"),
+    model=os.getenv("AGENT_MODEL", "gpt-4o"),
     instructions=system_prompt,
     # mcp_servers=[railway_mcp_server], # <-- Temporarily commented out for MCP isolation test
 )
