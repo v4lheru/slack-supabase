@@ -31,8 +31,8 @@ async function initializeComponents() {
             throw new Error('Missing required Slack environment variables');
         }
 
-        if (!env.OPENROUTER_API_KEY) {
-            throw new Error('Missing required OpenRouter API key');
+        if (!env.OPENAI_API_KEY) {
+            throw new Error('Missing required OpenAI API key');
         }
 
         // MCP is optional: only warn if not set, don't throw
