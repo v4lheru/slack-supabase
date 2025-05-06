@@ -416,9 +416,30 @@ export function aiResponseMessage(
         ? content
         : '(no content)';            // fallback if the model returned an empty string
 
-    const blocks: Block[] = [
-        section(safeContent),
-    ];
+    // Split content into chunks for Slack section blocks
+    // Prefer splitting on double newlines, but also enforce a max length per block
+    const MAX_BLOCK_TEXT_LENGTH = 2500;
+    function splitContentToSections(text: string): string[] {
+        const paragraphs = text.split(/\n\s*\n/);
+        const sections: string[] = [];
+        for (let para of paragraphs) {
+            // If a paragraph is too long, split it further
+            while (para.length > MAX_BLOCK_TEXT_LENGTH) {
+                sections.push(para.slice(0, MAX_BLOCK_TEXT_LENGTH));
+                para = para.slice(MAX_BLOCK_TEXT_LENGTH);
+            }
+            if (para.length > 0) {
+                sections.push(para);
+            }
+        }
+        return sections;
+    }
+
+    const blocks: Block[] = [];
+    const sections = splitContentToSections(safeContent);
+    for (const sectionText of sections) {
+        blocks.push(section(sectionText));
+    }
 
     // Add function results if provided
     if (functionResults && functionResults.length > 0) {
