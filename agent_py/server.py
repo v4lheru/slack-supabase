@@ -12,6 +12,8 @@ except ModuleNotFoundError:
     from openai_agents import Runner   # fallback for some installs
 from custom_slack_agent import _agent, railway_mcp_server
 
+from openai.types.responses import ResponseTextDeltaEvent
+
 app = FastAPI(title="Slack-Agent API")
 
 class ChatRequest(BaseModel):
@@ -31,6 +33,24 @@ async def stream_agent_events(agent, messages):
         run_result = Runner.run_streamed(agent, messages)   # returns RunResultStreaming
         print("Agent stream started")
         async for event in run_result.stream_events():
+            #  Map raw LLM deltas to the format expected by the Node client 
+            if (
+                event.type == "raw_response_event"
+                and isinstance(event.data, ResponseTextDeltaEvent)
+            ):
+                yield f"{json.dumps({'type': 'llm_chunk', 'data': event.data.delta})}\n"
+                await asyncio.sleep(0.01)
+                continue  # skip to next streamed event
+
+            # Ignore all other raw-response noise that isnt JSON-serialisable
+            if event.type == "raw_response_event":
+                continue
+
+            # Ignore SDK-level agent update pings (the UI doesnt use them)
+            if event.type == "agent_updated_stream_event":
+                continue
+
+            #  Existing fallback: convert any remaining event as before 
             output_event = None
             event_type = 'unknown'
             try:
