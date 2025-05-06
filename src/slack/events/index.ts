@@ -15,6 +15,40 @@ import * as blockKit from '../utils/block-kit';
 import { ThreadInfo } from '../utils/conversation';
 import * as os from 'os';
 import * as path from 'path';
+import axios from 'axios';
+
+// Helper function to download image and convert to Base64 data URI
+async function downloadAndEncodeImage(fileUrl: string, filetype: string): Promise<string | null> {
+    try {
+        logger.info(`${logEmoji.info} Downloading image for Base64 encoding: ${fileUrl}`);
+        const response = await axios.get<Buffer>(
+            fileUrl,
+            {
+                responseType: 'arraybuffer',
+                headers: {
+                    'Authorization': `Bearer ${process.env.SLACK_BOT_TOKEN}`
+                }
+            }
+        );
+
+        if (response.status === 200 && response.data) {
+            const base64String = Buffer.from(response.data).toString('base64');
+            const mimeType = `image/${filetype.toLowerCase()}`;
+            const dataUri = `data:${mimeType};base64,${base64String}`;
+            logger.info(`${logEmoji.info} Successfully encoded image to data URI (length: ${dataUri.length})`);
+            return dataUri;
+        } else {
+            logger.error(`${logEmoji.error} Failed to download image, status: ${response.status}`);
+            return null;
+        }
+    } catch (error: any) {
+        logger.error(`${logEmoji.error} Error downloading or encoding image`, {
+             errorMessage: error?.message,
+             status: error?.response?.status
+            });
+        return null;
+    }
+}
 
 const aiClient = new PythonAgentClient();
 let botUserId: string | undefined;
@@ -357,31 +391,37 @@ app.message(async ({ message, client, context }) => {
         // --- Detect and handle image uploads (jpg, png, gif, webp, etc.) ---
         const imageFileTypes = ['jpg','jpeg','png','gif','webp','bmp','tiff'];
         const imageFiles = files.filter((f: any) =>
+            f.url_private_download &&
             imageFileTypes.includes((f.filetype || '').toLowerCase())
         );
 
         if (imageFiles.length) {
-            // Make each file public and collect the public URLs
-            const publicUrls: string[] = [];
-            for (const f of imageFiles) {
-                let url = f.permalink_public;
-                if (!url) {
-                    const shared = await client.files.sharedPublicURL({ file: f.id });
-                    url = shared.file?.permalink_public;
+            logger.info(`${logEmoji.info} Found ${imageFiles.length} image file(s) to process.`);
+            const imageDataUris: string[] = [];
+
+            for (const file of imageFiles) {
+                const dataUri = await downloadAndEncodeImage(file.url_private_download, file.filetype);
+                if (dataUri) {
+                    imageDataUris.push(dataUri);
+                } else {
+                    logger.warn(`${logEmoji.warning} Could not process image file: ${file.name} (ID: ${file.id})`);
                 }
-                if (url) publicUrls.push(url);
             }
 
-            // Combine optional text + all images into multimodal content
+            if (imageDataUris.length === 0) {
+                logger.error(`${logEmoji.error} No images could be successfully downloaded and encoded.`);
+                return;
+            }
+
+            // Combine optional text + all successfully encoded images
             const multimodalContent: MessageContent[] = [];
             if (message.text && message.text.trim()) {
                 multimodalContent.push({ type: 'text', text: message.text.trim() });
             }
-
             multimodalContent.push(
-                ...publicUrls.map(url => ({
+                ...imageDataUris.map(dataUri => ({
                     type: 'input_image' as const,
-                    image_url: url,
+                    image_url: dataUri
                 }))
             );
 
