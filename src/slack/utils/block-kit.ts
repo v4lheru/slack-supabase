@@ -417,7 +417,7 @@ export function aiResponseMessage(
         : '(no content)';
 
     // --- NEW BLOCK CREATION LOGIC ---
-    const MAX_CHARS_PER_BLOCK = 450; // Increased limit
+    const MAX_CHARS_PER_BLOCK = 300; // Limit lowered from 450 to 300
     const finalContentBlocks: Block[] = [];
     const lines = safeContent.split('\n');
     let currentSectionText = '';
