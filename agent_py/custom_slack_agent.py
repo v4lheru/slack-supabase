@@ -2,6 +2,13 @@ import os
 from dotenv import load_dotenv
 load_dotenv()  # Load environment variables first
 
+import openai
+# Allow OPENAI_BASE_URL from .env to override the default.
+# The OpenAI library reads env vars automatically, but setting it
+# explicitly makes local/debug runs fool-proof.
+if os.getenv("OPENAI_BASE_URL"):
+    openai.base_url = os.environ["OPENAI_BASE_URL"]
+
 from agents import Agent
 from agents.mcp import MCPServerSse
 
