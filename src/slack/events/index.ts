@@ -413,7 +413,7 @@ app.message(async ({ message, client, context }) => {
             // Combine optional text + all successfully encoded images
             const multimodalContent: MessageContent[] = [];
             if (message.text && message.text.trim()) {
-                multimodalContent.push({ type: 'text', text: message.text.trim() });
+                multimodalContent.push({ type: 'input_text', text: message.text.trim() });
             }
             multimodalContent.push(
                 ...imageDataUris.map(dataUri => ({

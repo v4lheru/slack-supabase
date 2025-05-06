@@ -35,7 +35,7 @@ function createAssistantMessage(
 }
 
 function createTextContent(text: string): MessageContent {
-  return { type: 'text', text };
+  return { type: 'input_text', text };
 }
 
 function createImageContent(url: string): MessageContent {

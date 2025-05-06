@@ -13,13 +13,13 @@ export type MessageRole = 'user' | 'assistant' | 'system';
 /**
  * Content types for multimodal messages
  */
-export type ContentType = 'text' | 'input_image';
+export type ContentType = 'input_text' | 'input_image';
 
 /**
  * Text content for a message
  */
 export interface TextContent {
-    type: 'text';
+    type: 'input_text';
     text: string;
 }
 
