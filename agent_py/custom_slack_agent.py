@@ -6,7 +6,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 railway_server_url = "https://eu1.make.com/mcp/api/v1/u/2a183f33-4498-4ebe-b558-49e956ee0c29/sse"
-railway_mcp_server = MCPServerSse(name="railway", params={"url": railway_server_url})
+railway_mcp_server = MCPServerSse(
+    name="railway",
+    params={"url": railway_server_url},
+    client_session_timeout_seconds=30.0  # Increase timeout to 30 seconds
+)
 
 _agent = Agent(
     name="SlackAssistant",
