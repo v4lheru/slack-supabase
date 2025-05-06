@@ -1,5 +1,5 @@
 import os
-from agents_mcp import Agent
+from agents import Agent
 from agents.mcp import MCPServerSse
 from dotenv import load_dotenv
 
