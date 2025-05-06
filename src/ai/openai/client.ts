@@ -32,25 +32,17 @@ export class OpenAIClient implements AIProvider {
       name: fn.name,
       description: fn.description,
       parameters: fn.parameters,
-      strict: false,
+      // required by the SDK typings
+      strict: false as const,
     }));
 
-    // Build params that match the `ResponseCreateParams*` types
-    const responseParams: any = {
+    const res = await this.client.responses.create({
       model,
       instructions,
       input,
       tools,
       tool_choice: tools?.length ? 'auto' : 'none',
-    };
-
-    // Only add `stream` when the caller really wants streaming
-    if (options?.stream) {
-      responseParams.stream = true;            // must be exactly `true` for the streaming overload
-    }
-
-    // NB: `temperature`, `top_p`, `max_tokens` are not part of the Responses endpoint
-    const res = await this.client.responses.create(responseParams);
+    });
 
     // The SDK's Response type is a union that hides `tool_calls` & `finish_reason`;
     // cast to loosen the type for result-parsing.
