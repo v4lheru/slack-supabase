@@ -8,7 +8,7 @@
 import { app } from '../app';
 import { logger, logEmoji } from '../../utils/logger';
 import { PythonAgentClient, AgentStreamEvent } from '../../ai/agent-api/client';
-import { MessageContent } from '../../ai/interfaces/provider';
+import { MessageContent, ImageContent } from '../../ai/interfaces/provider';
 import { contextManager } from '../../ai/context/manager';
 import * as conversationUtils from '../utils/conversation';
 import * as blockKit from '../utils/block-kit';
@@ -378,9 +378,9 @@ app.message(async ({ message, client, context }) => {
                 multimodalContent.push({ type: 'text', text: message.text.trim() });
             }
             multimodalContent.push(
-                ...publicUrls.map(url => ({
+                ...publicUrls.map<ImageContent>(url => ({
                     type: 'image_url',
-                    image_url: { url, detail: 'auto' as const },
+                    image_url: { url, detail: 'auto' },
                 }))
             );
 
