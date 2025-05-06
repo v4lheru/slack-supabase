@@ -1,6 +1,6 @@
 openai>=1.14
-openai-agents>=0.5.0
-openai-agents-mcp>=0.3.0
+openai-agents>=0.0.14
+openai-agents-mcp>=0.0.8
 fastapi>=0.110
 uvicorn[standard]>=0.25
 python-dotenv>=1.0

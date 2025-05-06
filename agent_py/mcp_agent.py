@@ -1,6 +1,5 @@
 import os
-from agents import Agent
-from agents_mcp import McpTool
+from agents_mcp import Agent
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,8 +10,5 @@ _agent = Agent(
     instructions="""You are an AI assistant for a Slack workspace.
 Be concise, use Slack-style markdown, and solve the user's request.
 """,
-    tools=[McpTool(
-        server_url=os.environ["MCP_SERVER_URL"],
-        auth_token=os.getenv("MCP_AUTH_TOKEN", "")
-    )],
+    mcp_servers=["default"],
 )
