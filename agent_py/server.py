@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 import json
 import asyncio
+import traceback # Import traceback
+
 # The Agents SDK usually installs an *agents* top-level package.
 # If it isnt importable (e.g. the wheel exposes `openai_agents`
 # instead), fall back gracefully:
@@ -27,66 +29,109 @@ class ChatResponse(BaseModel):
 # --- Streaming generator for agent events ---
 # (No longer manages connect/cleanup, only yields agent events)
 async def stream_agent_events(agent, messages):
+    print(f"PY_AGENT_DEBUG (stream_agent_events): Starting agent stream. Number of messages: {len(messages)}")
+    if messages:
+        print(f"PY_AGENT_DEBUG (stream_agent_events): First message: {messages[0]}")
+        print(f"PY_AGENT_DEBUG (stream_agent_events): Last message: {messages[-1]}")
+    # For very detailed debugging of all messages (can be verbose):
+    # print(f"PY_AGENT_DEBUG (stream_agent_events): Full messages list: {messages}")
     try:
-        # Runner.run_streamed returns a RunResultStreaming object.
-        # Iterate over its async event stream.
-        run_result = Runner.run_streamed(agent, messages)   # returns RunResultStreaming
-        print("Agent stream started")
+        run_result = Runner.run_streamed(agent, messages)
+        print("PY_AGENT_DEBUG (stream_agent_events): Runner.run_streamed called, agent stream should start.")
         async for event in run_result.stream_events():
-            #  Map raw LLM deltas to the format expected by the Node client 
+            # Let's log the raw event type before your processing
+            raw_event_type = 'unknown_raw'
+            if hasattr(event, 'type'):
+                raw_event_type = event.type
+            elif hasattr(event, 'event') and isinstance(event.event, str): # For some SDK versions
+                 raw_event_type = event.event
+
+            print(f"PY_AGENT_DEBUG (stream_agent_events): Raw event from SDK: type='{raw_event_type}'")
+
+            # --- Start of your existing event processing logic for 'raw_response_event' etc.
             if (
-                event.type == "raw_response_event"
+                hasattr(event, 'type') and event.type == "raw_response_event"
                 and isinstance(event.data, ResponseTextDeltaEvent)
             ):
+                print(f"PY_AGENT_DEBUG (stream_agent_events): Yielding llm_chunk: {event.data.delta}")
                 yield f"{json.dumps({'type': 'llm_chunk', 'data': event.data.delta})}\n"
                 await asyncio.sleep(0.01)
-                continue  # skip to next streamed event
-
-            # Ignore all other raw-response noise that isnt JSON-serialisable
-            if event.type == "raw_response_event":
                 continue
 
-            # Ignore SDK chatter the Slack layer doesnt care about
-            if event.type in (
+            if hasattr(event, 'type') and event.type == "raw_response_event":
+                print(f"PY_AGENT_DEBUG (stream_agent_events): Ignoring raw_response_event (not ResponseTextDeltaEvent). Data: {type(event.data)}")
+                continue
+
+            if hasattr(event, 'type') and event.type in (
                 "agent_updated_stream_event",
-                "run_item_stream_event",   #  suppress unknown/unhandled warning
+                "run_item_stream_event",
             ):
+                print(f"PY_AGENT_DEBUG (stream_agent_events): Ignoring SDK chatter event: {event.type}")
                 continue
-
-            #  Existing fallback: convert any remaining event as before 
+            
+            # Fallback processing
             output_event = None
-            event_type = 'unknown'
+            event_type_str = 'unknown_fallback'
+            event_data_processed = None
             try:
-                event_type = getattr(event, 'type', 'unknown')
-                event_data = getattr(event, 'data', None)
+                event_type_str = getattr(event, 'type', 'unknown_fallback_attr')
+                event_data_raw = getattr(event, 'data', None)
                 try:
-                    json.dumps(event_data)
+                    json.dumps(event_data_raw) # Test serializability
+                    event_data_processed = event_data_raw
                 except TypeError:
-                    print(f"Warning: Event data for type '{event_type}' is not directly JSON serializable. Converting to string.")
-                    event_data = str(event_data)
-                output_event = {"type": event_type, "data": event_data}
-                print(f"Streaming event: {event_type}")
+                    print(f"PY_AGENT_DEBUG (stream_agent_events): Warning: Event data for type '{event_type_str}' is not directly JSON serializable. Converting to string.")
+                    event_data_processed = str(event_data_raw)
+                output_event = {"type": event_type_str, "data": event_data_processed}
+                print(f"PY_AGENT_DEBUG (stream_agent_events): Streaming event (fallback): type='{event_type_str}'")
             except Exception as processing_error:
-                print(f"Error processing event structure: {processing_error}")
+                print(f"PY_AGENT_DEBUG (stream_agent_events): Error processing event structure: {processing_error}")
                 output_event = {"type": "processing_error", "data": f"Failed to process event: {str(processing_error)}"}
+            
             if output_event:
                 try:
                     yield f"{json.dumps(output_event)}\n"
                     await asyncio.sleep(0.01)
                 except TypeError as json_error:
-                    print(f"Error serializing processed event to JSON: {json_error}")
-                    yield f"{json.dumps({'type': 'error', 'data': f'JSON serialization error for event type {event_type}'})}\n"
+                    print(f"PY_AGENT_DEBUG (stream_agent_events): Error serializing processed event to JSON: {json_error}")
+                    yield f"{json.dumps({'type': 'error', 'data': f'JSON serialization error for event type {event_type_str}'})}\n"
                     await asyncio.sleep(0.01)
+            # --- End of your existing event processing logic
+            
     except Exception as e:
-        print(f"Error during agent streaming execution: {e}")
+        # This will catch errors from Runner.run_streamed or during the async for loop setup
+        print(f"PY_AGENT_ERROR (stream_agent_events): Exception during agent streaming execution: {str(e)}")
+        print(f"PY_AGENT_ERROR (stream_agent_events): Traceback: {traceback.format_exc()}")
         yield f"{json.dumps({'type': 'error', 'data': f'Agent execution failed: {str(e)}'})}\n"
         await asyncio.sleep(0.01)
     finally:
-        print("Agent stream generator finished.")
+        print("PY_AGENT_DEBUG (stream_agent_events): Agent stream generator finished.")
 
-# --- Streaming endpoint for /generate ---
+
 @app.post("/generate")
 async def generate_stream(req: ChatRequest):
+    print(f"PY_AGENT_DEBUG (/generate): Received request. Prompt type: {type(req.prompt)}")
+    if isinstance(req.prompt, list):
+        # Log only a summary if prompt is a list to avoid huge logs, e.g., for images
+        prompt_summary = []
+        for item in req.prompt:
+            if isinstance(item, dict) and item.get("type") == "input_image":
+                prompt_summary.append({"type": "input_image", "image_url_type": type(item.get("image_url")).__name__})
+            elif isinstance(item, dict) and item.get("type") == "text":
+                 prompt_summary.append({"type": "text", "text_len": len(item.get("text",""))})
+            else:
+                prompt_summary.append(str(item)[:100]) # Truncate other types
+        print(f"PY_AGENT_DEBUG (/generate): Prompt (summarized list): {prompt_summary}")
+    else:
+        print(f"PY_AGENT_DEBUG (/generate): Prompt: {str(req.prompt)[:500]}") # Truncate long strings
+
+    print(f"PY_AGENT_DEBUG (/generate): History - Number of messages: {len(req.history)}")
+    if req.history:
+        # Log summary of history
+        history_summary = [{"role": msg.get("role", "N/A"), "content_type": type(msg.get("content")).__name__} for msg in req.history]
+        print(f"PY_AGENT_DEBUG (/generate): History (summarized): {history_summary}")
+
+
     cleaned_messages = []
     for hist_msg in req.history:
         if isinstance(hist_msg, dict) and "role" in hist_msg and "content" in hist_msg:
@@ -99,27 +144,48 @@ async def generate_stream(req: ChatRequest):
             elif hist_msg["role"] == "assistant" and "tool_calls" in hist_msg:
                 cleaned_msg["tool_calls"] = hist_msg["tool_calls"]
             cleaned_messages.append(cleaned_msg)
-    cleaned_messages.append({"role": "user", "content": req.prompt})
+    
+    # Check type of req.prompt before appending
+    if isinstance(req.prompt, str) or isinstance(req.prompt, list):
+        cleaned_messages.append({"role": "user", "content": req.prompt})
+    else:
+        # Fallback if req.prompt is neither string nor list (should not happen with Pydantic validation)
+        print(f"PY_AGENT_WARNING (/generate): req.prompt is of unexpected type: {type(req.prompt)}. Converting to string.")
+        cleaned_messages.append({"role": "user", "content": str(req.prompt)})
 
-    # Ensure MCP server is connected at startup and stays connected
-    # Only connect once, and never disconnect/cleanup per request
-    # (Assume railway_mcp_server.connect() is idempotent and safe to call multiple times)
+    print(f"PY_AGENT_DEBUG (/generate): Cleaned messages prepared for agent. Count: {len(cleaned_messages)}")
+    if cleaned_messages:
+        print(f"PY_AGENT_DEBUG (/generate): Last cleaned message (current user prompt part): {cleaned_messages[-1]}")
+
+
+    # MCP server connection logic (no changes needed here for logging, it prints "MCP Server Connected (global)")
     if hasattr(_agent, 'mcp_servers') and _agent.mcp_servers and railway_mcp_server in _agent.mcp_servers:
         if not getattr(railway_mcp_server, "_connected", False):
-            await railway_mcp_server.connect()
-            railway_mcp_server._connected = True
-            print("MCP Server Connected (global)")
+            try:
+                print("PY_AGENT_DEBUG (/generate): Attempting to connect to MCP Server...")
+                await railway_mcp_server.connect()
+                railway_mcp_server._connected = True # type: ignore
+                print("PY_AGENT_DEBUG (/generate): MCP Server Connected (local check within request)")
+            except Exception as mcp_conn_err:
+                print(f"PY_AGENT_ERROR (/generate): Failed to connect to MCP server: {mcp_conn_err}")
+                print(f"PY_AGENT_ERROR (/generate): MCP Connection Traceback: {traceback.format_exc()}")
+
 
     async def managed_stream_wrapper():
+        print("PY_AGENT_DEBUG (managed_stream_wrapper): Starting.")
         try:
             async for event_json_line in stream_agent_events(_agent, cleaned_messages):
                 yield event_json_line
         except Exception as wrap_err:
-            print(f"Error in managed stream wrapper: {wrap_err}")
+            print(f"PY_AGENT_ERROR (managed_stream_wrapper): Error: {wrap_err}")
+            print(f"PY_AGENT_ERROR (managed_stream_wrapper): Traceback: {traceback.format_exc()}")
             try:
                 yield f"{json.dumps({'type': 'error', 'data': f'Stream wrapper error: {str(wrap_err)}'})}\n"
             except Exception:
-                pass
+                pass # Avoid error in error reporting
+        finally:
+            print("PY_AGENT_DEBUG (managed_stream_wrapper): Finished.")
+
 
     return StreamingResponse(
         managed_stream_wrapper(),
