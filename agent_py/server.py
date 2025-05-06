@@ -172,19 +172,28 @@ async def generate_stream(req: ChatRequest):
     if cleaned_messages:
         print(f"PY_AGENT_DEBUG (/generate): Last cleaned message (current user prompt part): {cleaned_messages[-1]}")
 
-    # # MCP server connection logic - The Agent SDK should handle connecting to the MCP server instance provided to it.
-    # # Explicitly connecting here might be redundant or could conflict.
-    # if hasattr(_agent, 'mcp_servers') and _agent.mcp_servers and railway_mcp_server in _agent.mcp_servers:
-    #     if not getattr(railway_mcp_server, "_connected", False): # This _connected flag is custom
-    #         try:
-    #             print("PY_AGENT_DEBUG (/generate): Attempting to connect to MCP Server (explicit call)...")
-    #             await railway_mcp_server.connect() # SDK's connect method
-    #             setattr(railway_mcp_server, "_connected", True) # type: ignore
-    #             print("PY_AGENT_DEBUG (/generate): MCP Server Connected (explicit call within request)")
-    #         except Exception as mcp_conn_err:
-    #             print(f"PY_AGENT_ERROR (/generate): Failed to connect to MCP server (explicit call): {mcp_conn_err}")
-    #             print(f"PY_AGENT_ERROR (/generate): MCP Connection Traceback (explicit call): {traceback.format_exc()}")
-    #             # Decide if you want to proceed if explicit connect fails or return an error
+    # MCP server connection logic - Restore this block
+    if hasattr(_agent, 'mcp_servers') and _agent.mcp_servers and railway_mcp_server in _agent.mcp_servers:
+        # We use your custom '_connected' attribute to track state.
+        # Note: MCPServerSse itself doesn't have a public 'is_connected' property.
+        # connect() should ideally be idempotent or handle being called multiple times if already connected.
+        if not getattr(railway_mcp_server, "_connected", False): 
+            try:
+                print("PY_AGENT_DEBUG (/generate): Attempting to connect to MCP Server (explicit call)...")
+                await railway_mcp_server.connect() # SDK's connect method
+                # Assuming connect() doesn't error if already connected, or handles it gracefully.
+                # Or, it establishes a new session if the old one was lost.
+                setattr(railway_mcp_server, "_connected", True) 
+                print("PY_AGENT_DEBUG (/generate): MCP Server Connected (explicit call within request)")
+            except Exception as mcp_conn_err:
+                print(f"PY_AGENT_ERROR (/generate): Failed to connect to MCP server (explicit call): {mcp_conn_err}")
+                print(f"PY_AGENT_ERROR (/generate): MCP Connection Traceback (explicit call): {traceback.format_exc()}")
+                # If connection fails, you might want to return an error to the client here
+                # instead of proceeding with a potentially non-functional MCP server.
+                # For now, it will try to run the agent, which might then fail if MCP tools are essential.
+                # Example:
+                # yield f"{json.dumps({'type': 'error', 'data': f'MCP connection failed: {str(mcp_conn_err)}'})}\n"
+                # return
 
 
     async def managed_stream_wrapper():
