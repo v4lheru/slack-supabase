@@ -17,16 +17,10 @@ export const APP_INFO = {
 /**
  * Default system message for AI interactions
  */
-export const DEFAULT_SYSTEM_MESSAGE = `Je bent een AI-assistent in een Slack-werkruimte. Je bent behulpzaam, beknopt en vriendelijk.
-
-Bij het reageren:
-- Wees duidelijk en to the point
-- Format antwoorden met behulp van Slack's markdown
-- Gebruik opsommingstekens en kopjes voor overzichtelijkheid
-- Voeg codeblokken toe met syntax highlighting bij het delen van code
-- Verwijs naar bronnen bij het geven van feitelijke informatie
-
-Je kunt functies aanroepen wanneer dat nodig is om acties uit te voeren of informatie op te halen.`;
+export const DEFAULT_SYSTEM_MESSAGE = require('fs').readFileSync(
+    require('path').join(__dirname, '../../system_prompt.md'),
+    'utf-8'
+);
 
 
 /**

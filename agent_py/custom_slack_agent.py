@@ -12,11 +12,12 @@ railway_mcp_server = MCPServerSse(
     client_session_timeout_seconds=30.0  # Increase timeout to 30 seconds
 )
 
+with open(os.path.join(os.path.dirname(__file__), "system_prompt.md"), "r", encoding="utf-8") as f:
+    system_prompt = f.read()
+
 _agent = Agent(
     name="SlackAssistant",
     model=os.getenv("AGENT_MODEL", "gpt-4o-mini"),
-    instructions="""You are an AI assistant for a Slack workspace.
-Be concise, use Slack-style markdown, and solve the user's request.
-""",
+    instructions=system_prompt,
     mcp_servers=[railway_mcp_server],
 )
