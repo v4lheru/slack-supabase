@@ -9,11 +9,7 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { env } from '../config/environment';
 import { logger, logEmoji } from '../utils/logger';
 import { Readable } from 'node:stream';
-import {
-  createParser,
-  ParsedEvent,
-  ReconnectInterval,
-} from 'eventsource-parser';
+import { createParser } from 'eventsource-parser';
 
 /**
  * MCP client configuration
@@ -240,7 +236,9 @@ export class MCPClient {
             headers: { Accept: 'text/event-stream' },
         });
 
-        const parser = createParser((event: ParsedEvent | ReconnectInterval) => {
+        // Cast to `any` so it works with every released signature of
+        // `eventsource-parser` (object-based or function-based).
+        const parser: any = (createParser as any)((event: any) => {
             if (event.type === 'event' && event.data) {
                 try { onMessage(JSON.parse(event.data)); } catch { /* ignore non-JSON */ }
             }
