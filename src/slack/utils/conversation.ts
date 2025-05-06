@@ -39,7 +39,7 @@ function createTextContent(text: string): MessageContent {
 }
 
 function createImageContent(url: string): MessageContent {
-  return { type: 'image_url', image_url: { url } };
+  return { type: 'input_image', image_url: { url } };
 }
 
 function createMultimodalUserMessage(

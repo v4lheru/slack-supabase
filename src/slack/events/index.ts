@@ -378,8 +378,8 @@ app.message(async ({ message, client, context }) => {
                 multimodalContent.push({ type: 'text', text: message.text.trim() });
             }
             multimodalContent.push(
-                ...publicUrls.map<ImageContent>(url => ({
-                    type: 'image_url',
+                ...publicUrls.map(url => ({
+                    type: 'input_image',
                     image_url: { url, detail: 'auto' },
                 }))
             );
