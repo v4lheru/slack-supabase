@@ -26,13 +26,15 @@ async def generate(req: ChatRequest):
     for hist_msg in req.history:
         if isinstance(hist_msg, dict) and "role" in hist_msg and "content" in hist_msg:
             cleaned_msg = {"role": hist_msg["role"], "content": hist_msg["content"]}
-            # Optionally preserve other valid OpenAI keys
-            if "name" in hist_msg:
-                cleaned_msg["name"] = hist_msg["name"]
-            if "tool_calls" in hist_msg:
-                cleaned_msg["tool_calls"] = hist_msg["tool_calls"]
-            if "tool_call_id" in hist_msg:
-                cleaned_msg["tool_call_id"] = hist_msg["tool_call_id"]
+            # Only add fields allowed for each role
+            if hist_msg["role"] == "tool":
+                if "tool_call_id" in hist_msg:
+                    cleaned_msg["tool_call_id"] = hist_msg["tool_call_id"]
+                if "name" in hist_msg:
+                    cleaned_msg["name"] = hist_msg["name"]
+            elif hist_msg["role"] == "assistant":
+                if "tool_calls" in hist_msg:
+                    cleaned_msg["tool_calls"] = hist_msg["tool_calls"]
             cleaned_messages.append(cleaned_msg)
     cleaned_messages.append({"role": "user", "content": req.prompt})
 
