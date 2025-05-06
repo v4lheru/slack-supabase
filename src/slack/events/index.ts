@@ -377,12 +377,23 @@ app.message(async ({ message, client, context }) => {
             if (message.text && message.text.trim()) {
                 multimodalContent.push({ type: 'text', text: message.text.trim() });
             }
-            multimodalContent.push(
-                ...publicUrls.map(url => ({
-                    type: 'input_image' as const,
-                    image_url: url,
-                }))
-            );
+
+            // --- TEMPORARY TEST: Use a public image URL instead of Slack URLs ---
+            const testImageUrl = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/640px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg";
+            multimodalContent.push({
+                type: 'input_image' as const,
+                image_url: testImageUrl
+            });
+            logger.warn(`[DEBUG] Using hardcoded test image URL: ${testImageUrl}`);
+            // --- END TEMPORARY TEST ---
+
+            // // Original code (commented out for test)
+            // multimodalContent.push(
+            //     ...publicUrls.map(url => ({
+            //         type: 'input_image' as const,
+            //         image_url: url,
+            //     }))
+            // );
 
             const threadInfo: ThreadInfo = {
                 channelId: message.channel,
