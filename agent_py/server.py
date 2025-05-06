@@ -101,17 +101,17 @@ async def generate_stream(req: ChatRequest):
             cleaned_messages.append(cleaned_msg)
     cleaned_messages.append({"role": "user", "content": req.prompt})
 
-    server_instance_to_manage = None
+    # Ensure MCP server is connected at startup and stays connected
+    # Only connect once, and never disconnect/cleanup per request
+    # (Assume railway_mcp_server.connect() is idempotent and safe to call multiple times)
     if hasattr(_agent, 'mcp_servers') and _agent.mcp_servers and railway_mcp_server in _agent.mcp_servers:
-        server_instance_to_manage = railway_mcp_server
+        if not getattr(railway_mcp_server, "_connected", False):
+            await railway_mcp_server.connect()
+            railway_mcp_server._connected = True
+            print("MCP Server Connected (global)")
 
     async def managed_stream_wrapper():
-        server_connected = False
         try:
-            if server_instance_to_manage:
-                await server_instance_to_manage.connect()
-                server_connected = True
-                print("MCP Server Connected (wrapper)")
             async for event_json_line in stream_agent_events(_agent, cleaned_messages):
                 yield event_json_line
         except Exception as wrap_err:
@@ -120,10 +120,6 @@ async def generate_stream(req: ChatRequest):
                 yield f"{json.dumps({'type': 'error', 'data': f'Stream wrapper error: {str(wrap_err)}'})}\n"
             except Exception:
                 pass
-        finally:
-            if server_connected and server_instance_to_manage:
-                await server_instance_to_manage.cleanup()
-                print("MCP Server Cleaned Up (wrapper)")
 
     return StreamingResponse(
         managed_stream_wrapper(),
