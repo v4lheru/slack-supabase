@@ -46,8 +46,11 @@ async def stream_agent_events(agent, messages):
             if event.type == "raw_response_event":
                 continue
 
-            # Ignore SDK-level agent update pings (the UI doesnt use them)
-            if event.type == "agent_updated_stream_event":
+            # Ignore SDK chatter the Slack layer doesnt care about
+            if event.type in (
+                "agent_updated_stream_event",
+                "run_item_stream_event",   #  suppress unknown/unhandled warning
+            ):
                 continue
 
             #  Existing fallback: convert any remaining event as before 
