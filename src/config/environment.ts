@@ -27,6 +27,9 @@ export interface EnvironmentVariables {
      */
     MCP_SSE_URL?: string;
 
+    // Python Agent API
+    PY_AGENT_URL: string;
+
     // App Configuration
     NODE_ENV: 'development' | 'production' | 'test';
     LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
@@ -42,6 +45,7 @@ const REQUIRED_ENV_VARS = [
     'SLACK_SIGNING_SECRET',
     'SLACK_APP_TOKEN',
     'OPENAI_API_KEY',
+    'PY_AGENT_URL',
 ];
 
 /**
@@ -77,6 +81,9 @@ export function loadEnvironment(): EnvironmentVariables {
         MCP_AUTH_TOKEN: process.env.MCP_AUTH_TOKEN || '',
         // new  leave undefined if you dont use SSE
         MCP_SSE_URL: process.env.MCP_SSE_URL,
+
+        // Python Agent API
+        PY_AGENT_URL: process.env.PY_AGENT_URL!,
 
         // App Configuration
         NODE_ENV: (process.env.NODE_ENV as EnvironmentVariables['NODE_ENV']) || DEFAULT_ENV.NODE_ENV,

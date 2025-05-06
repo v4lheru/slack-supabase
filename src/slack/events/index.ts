@@ -7,17 +7,15 @@
 
 import { app } from '../app';
 import { logger, logEmoji } from '../../utils/logger';
-import { OpenAIClient } from '../../ai/openai/client';
+import { PythonAgentClient } from '../../ai/agent-api/client';
 import { contextManager } from '../../ai/context/manager';
 import * as conversationUtils from '../utils/conversation';
 import * as blockKit from '../utils/block-kit';
-import { AVAILABLE_FUNCTIONS, handleFunctionCall, formatFunctionCallResult } from '../../mcp/function-calling';
-import { FunctionCall } from '../../ai/interfaces/provider';
 import { ThreadInfo } from '../utils/conversation';
 import * as os from 'os';
 import * as path from 'path';
 
-const aiClient = new OpenAIClient();
+const aiClient = new PythonAgentClient();
 
 // Get the bot's user ID (will be populated after the app starts)
 let botUserId: string | undefined;
@@ -69,15 +67,8 @@ async function processMessageAndGenerateResponse(
         // Generate a response from the AI
         const aiResponse = await aiClient.generateResponse(
             messageText,
-            conversationHistory,
-            AVAILABLE_FUNCTIONS
+            conversationHistory
         );
-
-        // Handle function calls if present
-        let functionResults: string[] = [];
-        if (aiResponse.functionCalls && aiResponse.functionCalls.length > 0) {
-            functionResults = await processFunctionCalls(aiResponse.functionCalls);
-        }
 
         // Update the thinking message with the AI response
         await conversationUtils.updateThinkingMessageWithAIResponse(
@@ -86,7 +77,7 @@ async function processMessageAndGenerateResponse(
             thinkingMessageTs,
             aiResponse.content,
             aiResponse.metadata,
-            functionResults
+            []
         );
     } catch (error) {
         logger.error(`${logEmoji.error} Error processing message and generating response`, { error });
@@ -100,33 +91,6 @@ async function processMessageAndGenerateResponse(
     }
 }
 
-/**
- * Process function calls from the AI
- * 
- * @param functionCalls Array of function calls
- * @returns Promise resolving to an array of function results
- */
-async function processFunctionCalls(functionCalls: FunctionCall[]): Promise<string[]> {
-    const results: string[] = [];
-
-    for (const functionCall of functionCalls) {
-        try {
-            logger.info(`${logEmoji.mcp} Processing function call: ${functionCall.name}`);
-
-            // Execute the function call
-            const result = await handleFunctionCall(functionCall);
-
-            // Format the result
-            const formattedResult = formatFunctionCallResult(functionCall.name, result);
-            results.push(formattedResult);
-        } catch (error) {
-            logger.error(`${logEmoji.error} Error processing function call: ${functionCall.name}`, { error });
-            results.push(`Error executing function ${functionCall.name}: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
-
-    return results;
-}
 
 // Handle message events
 import axios from 'axios';
