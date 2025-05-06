@@ -9,6 +9,19 @@ import openai
 if os.getenv("OPENAI_BASE_URL"):
     openai.base_url = os.environ["OPENAI_BASE_URL"]
 
+# ------------------------------------------------------------------
+# Geminis OpenAI-compatible endpoint supports *chat completions*,
+# not the newer *responses* API that the Agents SDK defaults to.
+# Tell the SDK to use chat-completions globally and turn off tracing
+# (otherwise it tries to upload traces with a real OpenAI key and
+# shows the 401 youre seeing).
+# ------------------------------------------------------------------
+from agents import set_default_openai_api
+from agents.tracing import set_tracing_disabled
+
+set_default_openai_api("chat_completions")  # switch away from /v1/responses
+set_tracing_disabled(True)                 # silence 401 tracing errors
+
 from agents import Agent
 from agents.mcp import MCPServerSse
 
