@@ -7,7 +7,7 @@ try:
     from agents import Runner          # normal path (openai-agents  0.0.7)
 except ModuleNotFoundError:
     from openai_agents import Runner   # fallback for some installs
-from mcp_agent import _agent
+from custom_slack_agent import _agent
 
 app = FastAPI(title="Slack-Agent API")
 
