@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 import json
 import asyncio
 import traceback # Import traceback
+import anyio  # For ClosedResourceError handling
 
 # The Agents SDK usually installs an *agents* top-level package.
 # If it isnt importable (e.g. the wheel exposes `openai_agents`
@@ -102,6 +103,20 @@ async def stream_agent_events(agent, messages):
         # This will catch errors from Runner.run_streamed or during the async for loop setup
         print(f"PY_AGENT_ERROR (stream_agent_events): Exception during agent streaming execution: {str(e)}")
         print(f"PY_AGENT_ERROR (stream_agent_events): Traceback: {traceback.format_exc()}")
+
+        # Check if it's a ClosedResourceError and try to reset the MCP connection flag
+        if isinstance(e, anyio.ClosedResourceError):
+            print(f"PY_AGENT_WARNING (stream_agent_events): ClosedResourceError detected. Resetting MCP connection flag.")
+            # Try to reset the _connected flag on the global railway_mcp_server object
+            if 'railway_mcp_server' in globals():
+                railway = globals()['railway_mcp_server']
+                if hasattr(railway, "_connected"):
+                    try:
+                        setattr(railway, "_connected", False)
+                        print(f"PY_AGENT_DEBUG (stream_agent_events): MCP _connected flag reset to False.")
+                    except Exception as flag_err:
+                        print(f"PY_AGENT_ERROR (stream_agent_events): Could not reset MCP flag: {flag_err}")
+
         yield f"{json.dumps({'type': 'error', 'data': f'Agent execution failed: {str(e)}'})}\n"
         await asyncio.sleep(0.01)
     finally:
