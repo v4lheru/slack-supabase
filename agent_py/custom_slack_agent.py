@@ -9,7 +9,8 @@ railway_server_url = "https://eu1.make.com/mcp/api/v1/u/2a183f33-4498-4ebe-b558-
 railway_mcp_server = MCPServerSse(
     name="railway",
     params={"url": railway_server_url},
-    client_session_timeout_seconds=30.0  # Increase timeout to 30 seconds
+    client_session_timeout_seconds=30.0,  # Increase timeout to 30 seconds
+    cache_tools_list=True  # Add this line to enable tool list caching
 )
 
 with open(os.path.join(os.path.dirname(__file__), "system_prompt.md"), "r", encoding="utf-8") as f:

@@ -172,17 +172,19 @@ async def generate_stream(req: ChatRequest):
     if cleaned_messages:
         print(f"PY_AGENT_DEBUG (/generate): Last cleaned message (current user prompt part): {cleaned_messages[-1]}")
 
-    # MCP server connection logic (no changes needed here for logging, it prints "MCP Server Connected (global)")
-    if hasattr(_agent, 'mcp_servers') and _agent.mcp_servers and railway_mcp_server in _agent.mcp_servers:
-        if not getattr(railway_mcp_server, "_connected", False):
-            try:
-                print("PY_AGENT_DEBUG (/generate): Attempting to connect to MCP Server...")
-                await railway_mcp_server.connect()
-                railway_mcp_server._connected = True # type: ignore
-                print("PY_AGENT_DEBUG (/generate): MCP Server Connected (local check within request)")
-            except Exception as mcp_conn_err:
-                print(f"PY_AGENT_ERROR (/generate): Failed to connect to MCP server: {mcp_conn_err}")
-                print(f"PY_AGENT_ERROR (/generate): MCP Connection Traceback: {traceback.format_exc()}")
+    # # MCP server connection logic - The Agent SDK should handle connecting to the MCP server instance provided to it.
+    # # Explicitly connecting here might be redundant or could conflict.
+    # if hasattr(_agent, 'mcp_servers') and _agent.mcp_servers and railway_mcp_server in _agent.mcp_servers:
+    #     if not getattr(railway_mcp_server, "_connected", False): # This _connected flag is custom
+    #         try:
+    #             print("PY_AGENT_DEBUG (/generate): Attempting to connect to MCP Server (explicit call)...")
+    #             await railway_mcp_server.connect() # SDK's connect method
+    #             setattr(railway_mcp_server, "_connected", True) # type: ignore
+    #             print("PY_AGENT_DEBUG (/generate): MCP Server Connected (explicit call within request)")
+    #         except Exception as mcp_conn_err:
+    #             print(f"PY_AGENT_ERROR (/generate): Failed to connect to MCP server (explicit call): {mcp_conn_err}")
+    #             print(f"PY_AGENT_ERROR (/generate): MCP Connection Traceback (explicit call): {traceback.format_exc()}")
+    #             # Decide if you want to proceed if explicit connect fails or return an error
 
 
     async def managed_stream_wrapper():
