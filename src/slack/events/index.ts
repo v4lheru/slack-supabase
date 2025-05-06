@@ -496,8 +496,8 @@ app.message(async ({ message, client, context }) => {
         }
 
         // Only respond in DMs, if channel name starts with "wiz", or if bot is mentioned
+        // But: If this is a mention, only respond in app_mention handler, not here!
         let shouldRespond = false;
-        let botMentioned = false;
         if (message.channel_type === 'im') {
             shouldRespond = true;
         } else if (message.channel_type === 'channel' || message.channel_type === 'group') {
@@ -510,15 +510,11 @@ app.message(async ({ message, client, context }) => {
             } catch (err) {
                 logger.error(`${logEmoji.error} Failed to fetch channel info for channel ${message.channel}`, { err });
             }
-            // Check if the bot is mentioned in the message
-            if (typeof message.text === 'string' && botUserId && message.text.includes(`<@${botUserId}>`)) {
-                botMentioned = true;
-                shouldRespond = true;
-            }
+            // Do NOT check for bot mention here; let app_mention handler handle that
         }
 
         if (!shouldRespond) {
-            logger.debug(`${logEmoji.slack} Not responding: not a DM, channel name does not start with "wiz", and bot not mentioned`);
+            logger.debug(`${logEmoji.slack} Not responding: not a DM and channel name does not start with "wiz"`);
             return;
         }
 
