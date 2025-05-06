@@ -9,7 +9,11 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { env } from '../config/environment';
 import { logger, logEmoji } from '../utils/logger';
 import { Readable } from 'node:stream';
-import { createParser } from 'eventsource-parser';
+import {
+  createParser,
+  ParsedEvent,
+  ReconnectInterval,
+} from 'eventsource-parser';
 
 /**
  * MCP client configuration
@@ -228,7 +232,7 @@ export class MCPClient {
     /**
      * Consume a Server-Sent-Events stream and pass each JSON chunk to the caller.
      */
-    private async streamFromSSE(onMessage: (msg: any) => void): Promise<void> {
+    private async streamFromSSE(onMessage: (msg: MCPResponse) => void): Promise<void> {
         if (!this.config.sseUrl) throw new Error('SSE URL not configured');
 
         const res = await this.client.get<Readable>(this.config.sseUrl, {
@@ -236,7 +240,7 @@ export class MCPClient {
             headers: { Accept: 'text/event-stream' },
         });
 
-        const parser = createParser(event => {
+        const parser = createParser((event: ParsedEvent | ReconnectInterval) => {
             if (event.type === 'event' && event.data) {
                 try { onMessage(JSON.parse(event.data)); } catch { /* ignore non-JSON */ }
             }
@@ -256,17 +260,11 @@ export class MCPClient {
         // If the server gave us an SSE endpoint, just sit on it.
         if (this.config.sseUrl) {
             return new Promise<MCPResponse>((resolve) => {
-                let final: MCPResponse | undefined;
-
                 this.streamFromSSE((data) => {
-                    if (data?.status === 'success' || data?.status === 'error') {
-                        final = data;
-                        resolve(final);
-                    }
-                }).catch(err => {
+                    if (data.status !== 'pending') resolve(data);
+                }).catch((err) => {
                     logger.error(`${logEmoji.error} SSE stream failed  falling back to polling`, { err });
-                    // fallback to normal polling
-                    resolve(this.pollOperation(operationId, maxWaitTimeMs, pollIntervalMs));
+                    this.pollOperation(operationId, maxWaitTimeMs, pollIntervalMs).then(resolve);
                 });
             });
         }
@@ -276,35 +274,26 @@ export class MCPClient {
     }
 
     /**
-     * Polling fallback for waitForOperation.
+     * Fallback to the original polling logic when SSE isnt available.
      */
     private async pollOperation(
         operationId: string,
-        maxWaitTimeMs: number = 60000, // 1 minute
-        pollIntervalMs: number = 1000 // 1 second
+        maxWaitTimeMs: number = 60_000,
+        pollIntervalMs: number = 1_000,
     ): Promise<MCPResponse> {
-        const startTime = Date.now();
+        const start = Date.now();
 
-        while (Date.now() - startTime < maxWaitTimeMs) {
-            // Check the operation status
-            const response = await this.checkOperationStatus(operationId);
-
-            // If the operation is no longer pending, return the response
-            if (response.status !== 'pending') {
-                return response;
-            }
-
-            // Wait before polling again
-            await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+        while (Date.now() - start < maxWaitTimeMs) {
+            const res = await this.checkOperationStatus(operationId);
+            if (res.status !== 'pending') return res;
+            await new Promise(r => setTimeout(r, pollIntervalMs));
         }
 
-        // Timeout reached
-        logger.warn(`${logEmoji.warning} MCP operation ${operationId} timed out after ${maxWaitTimeMs}ms`);
         return {
             status: 'error',
             error: {
                 code: 'operation_timeout',
-                message: `Operation timed out after ${maxWaitTimeMs}ms`,
+                message: `Operation timed out after ${maxWaitTimeMs} ms`,
             },
             operationId,
         };
