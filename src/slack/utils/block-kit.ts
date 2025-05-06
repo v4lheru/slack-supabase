@@ -418,7 +418,7 @@ export function aiResponseMessage(
 
     // Split content into chunks for Slack section blocks
     // Prefer splitting on double newlines, but also enforce a max length per block
-    const MAX_BLOCK_TEXT_LENGTH = 900;
+    const MAX_BLOCK_TEXT_LENGTH = 200;
     function splitContentToSections(text: string): string[] {
         const sections: string[] = [];
         let remaining = text;
