@@ -411,8 +411,13 @@ export function aiResponseMessage(
     metadata?: Record<string, any>,
     functionResults?: string[]
 ): { blocks: Block[]; text: string } {
+    // Slack requires at least one visible character in the first section.
+    const safeContent = content && content.trim().length > 0
+        ? content
+        : '(no content)';            // fallback if the model returned an empty string
+
     const blocks: Block[] = [
-        section(content),
+        section(safeContent),
     ];
 
     // Add function results if provided
@@ -447,6 +452,6 @@ export function aiResponseMessage(
 
     return {
         blocks,
-        text: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+        text: safeContent.substring(0, 100) + (safeContent.length > 100 ? '...' : ''),
     };
 }
