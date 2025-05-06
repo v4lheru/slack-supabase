@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from agents import Runner
+# The Agents SDK usually installs an *agents* top-level package.
+# If it isnt importable (e.g. the wheel exposes `openai_agents`
+# instead), fall back gracefully:
+try:
+    from agents import Runner          # normal path (openai-agents  0.0.7)
+except ModuleNotFoundError:
+    from openai_agents import Runner   # fallback for some installs
 from mcp_agent import _agent
 
 app = FastAPI(title="Slack-Agent API")
