@@ -18,7 +18,7 @@ export const APP_INFO = {
  * Default system message for AI interactions
  */
 export const DEFAULT_SYSTEM_MESSAGE = `You are an AI assistant in a Slack workspace. You are helpful, concise, and friendly.
-    
+
 When responding:
 - Be clear and to the point
 - Format responses using Slack's markdown
@@ -28,19 +28,6 @@ When responding:
 
 You can call functions when needed to perform actions or retrieve information.`;
 
-/**
- * OpenRouter configuration
- */
-export const OPENROUTER_CONFIG = {
-    BASE_URL: 'https://openrouter.ai/api/v1',
-    DEFAULT_MODEL: 'mistralai/mistral-small-24b-instruct-2501',
-    DEFAULT_TEMPERATURE: 0.7,
-    DEFAULT_MAX_TOKENS: 1024,
-    DEFAULT_TOP_P: 0.9,
-    HTTP_TIMEOUT: 60000, // 60 seconds
-    RETRY_COUNT: 3,
-    RETRY_DELAY: 1000, // 1 second
-};
 
 /**
  * MCP configuration

@@ -13,7 +13,6 @@ import { OpenAIClient } from './ai/openai/client';
 import { mcpClient } from './mcp/client';
 import { contextManager } from './ai/context/manager';
 import { AVAILABLE_FUNCTIONS } from './mcp/function-calling';
-import { DEFAULT_MODEL } from './ai/openrouter/models';
 
 // Import event handlers
 import './slack/events';
@@ -52,7 +51,6 @@ async function initializeComponents() {
         const aiClient = new OpenAIClient();
         const models = await aiClient.getAvailableModels();
         logger.info(`${logEmoji.ai} AI client initialized with ${models.length} available models`);
-        logger.info(`${logEmoji.ai} Default model: ${DEFAULT_MODEL}`);
 
         // Log available functions
         logger.info(`${logEmoji.mcp} ${AVAILABLE_FUNCTIONS.length} functions available for AI`);

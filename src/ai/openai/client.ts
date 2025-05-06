@@ -5,7 +5,7 @@ import {
 } from '../interfaces/provider';
 import { env } from '../../config/environment';
 import { logger, logEmoji } from '../../utils/logger';
-import { DEFAULT_MODEL } from '../openrouter/models';
+const DEFAULT_MODEL = 'gpt-4o-mini';
 
 export class OpenAIClient implements AIProvider {
   public readonly name = 'OpenAI';

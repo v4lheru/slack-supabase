@@ -12,7 +12,6 @@ import { contextManager } from '../../ai/context/manager';
 import * as conversationUtils from '../utils/conversation';
 import * as blockKit from '../utils/block-kit';
 import { AVAILABLE_FUNCTIONS, handleFunctionCall, formatFunctionCallResult } from '../../mcp/function-calling';
-import { DEFAULT_MODEL } from '../../ai/openrouter/models';
 import { FunctionCall } from '../../ai/interfaces/provider';
 import { ThreadInfo } from '../utils/conversation';
 import * as os from 'os';
