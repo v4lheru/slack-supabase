@@ -19,5 +19,5 @@ _agent = Agent(
     name="SlackAssistant",
     model=os.getenv("AGENT_MODEL", "gpt-4o-mini"),
     instructions=system_prompt,
-    mcp_servers=[railway_mcp_server],
+    # mcp_servers=[railway_mcp_server], # <-- Temporarily commented out for MCP isolation test
 )
