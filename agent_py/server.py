@@ -13,11 +13,32 @@ try:
     from agents import Runner          # normal path (openai-agents  0.0.7)
 except ModuleNotFoundError:
     from openai_agents import Runner   # fallback for some installs
-from custom_slack_agent import _agent, railway_mcp_server
+from custom_slack_agent import _agent, ACTIVE_MCP_SERVERS
 
 from openai.types.responses import ResponseTextDeltaEvent
 
 app = FastAPI(title="Slack-Agent API")
+
+# --- Application Startup Event ---
+@app.on_event("startup")
+async def startup_event():
+    print("PY_AGENT_INFO (startup): Application startup event triggered.")
+    if ACTIVE_MCP_SERVERS:
+        print(f"PY_AGENT_INFO (startup): Attempting to connect to {len(ACTIVE_MCP_SERVERS)} MCP server(s) on startup...")
+        for server_instance in ACTIVE_MCP_SERVERS:
+            try:
+                # Invalidate cache before initial connect if caching is enabled
+                if hasattr(server_instance, 'cache_tools_list') and server_instance.cache_tools_list:
+                    if hasattr(server_instance, 'invalidate_tools_cache'):
+                        server_instance.invalidate_tools_cache()
+                        print(f"PY_AGENT_DEBUG (startup): Invalidated tools cache for MCP server '{server_instance.name}'.")
+                await server_instance.connect()
+                print(f"PY_AGENT_INFO (startup): Successfully connected to MCP server '{server_instance.name}'.")
+            except Exception as e:
+                print(f"PY_AGENT_ERROR (startup): Failed to connect to MCP server '{server_instance.name}' on startup: {e}")
+                print(f"PY_AGENT_ERROR (startup): Traceback: {traceback.format_exc()}")
+    else:
+        print("PY_AGENT_INFO (startup): No active MCP servers configured for initial connection.")
 
 class ChatRequest(BaseModel):
     prompt: str | list
@@ -172,28 +193,27 @@ async def generate_stream(req: ChatRequest):
     if cleaned_messages:
         print(f"PY_AGENT_DEBUG (/generate): Last cleaned message (current user prompt part): {cleaned_messages[-1]}")
 
-    # MCP server connection logic - Restore this block
-    if hasattr(_agent, 'mcp_servers') and _agent.mcp_servers and railway_mcp_server in _agent.mcp_servers:
-        # We use your custom '_connected' attribute to track state.
-        # Note: MCPServerSse itself doesn't have a public 'is_connected' property.
-        # connect() should ideally be idempotent or handle being called multiple times if already connected.
-        if not getattr(railway_mcp_server, "_connected", False): 
+    # Per-request MCP connection check and re-establishment
+    if ACTIVE_MCP_SERVERS:
+        print(f"PY_AGENT_DEBUG (/generate): Checking/Re-establishing connection to {len(ACTIVE_MCP_SERVERS)} MCP server(s) before agent run...")
+        for server_instance in ACTIVE_MCP_SERVERS:
             try:
-                print("PY_AGENT_DEBUG (/generate): Attempting to connect to MCP Server (explicit call)...")
-                await railway_mcp_server.connect() # SDK's connect method
-                # Assuming connect() doesn't error if already connected, or handles it gracefully.
-                # Or, it establishes a new session if the old one was lost.
-                setattr(railway_mcp_server, "_connected", True) 
-                print("PY_AGENT_DEBUG (/generate): MCP Server Connected (explicit call within request)")
-            except Exception as mcp_conn_err:
-                print(f"PY_AGENT_ERROR (/generate): Failed to connect to MCP server (explicit call): {mcp_conn_err}")
-                print(f"PY_AGENT_ERROR (/generate): MCP Connection Traceback (explicit call): {traceback.format_exc()}")
-                # If connection fails, you might want to return an error to the client here
-                # instead of proceeding with a potentially non-functional MCP server.
-                # For now, it will try to run the agent, which might then fail if MCP tools are essential.
+                # Always invalidate cache before connect if caching is on,
+                # as connect() might establish a new session.
+                if hasattr(server_instance, 'cache_tools_list') and server_instance.cache_tools_list:
+                    if hasattr(server_instance, 'invalidate_tools_cache'):
+                        server_instance.invalidate_tools_cache()
+                        print(f"PY_AGENT_DEBUG (/generate): Invalidated tools cache for MCP server '{server_instance.name}'.")
+                await server_instance.connect()  # Attempt to connect or re-establish
+                print(f"PY_AGENT_DEBUG (/generate): MCP server '{server_instance.name}' connect() call completed for request.")
+            except Exception as mcp_req_conn_err:
+                print(f"PY_AGENT_ERROR (/generate): Failed during per-request MCP server connect for '{server_instance.name}': {mcp_req_conn_err}")
+                # If MCP is critical, you might want to yield an error here and stop.
                 # Example:
-                # yield f"{json.dumps({'type': 'error', 'data': f'MCP connection failed: {str(mcp_conn_err)}'})}\n"
-                # return
+                # return StreamingResponse(
+                #     (f"{json.dumps({'type': 'error', 'data': f'Critical MCP connection failed for {server_instance.name}: {str(mcp_req_conn_err)}'})}\n" async for _ in []),
+                #     media_type="application/x-json-stream"
+                # )
 
 
     async def managed_stream_wrapper():
