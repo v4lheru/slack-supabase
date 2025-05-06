@@ -36,12 +36,21 @@ export class OpenAIClient implements AIProvider {
       strict: false as const,
     }));
 
+    // Prepare inference parameters for future use, but do not pass to responses.create yet
+    const inferenceParams = {
+      temperature: options?.temperature,
+      max_tokens: options?.maxTokens,
+      top_p: options?.topP,
+      stream: options?.stream,
+    };
+
     const res = await this.client.responses.create({
       model,
       instructions,
       input,
       tools,
       tool_choice: tools?.length ? 'auto' : 'none',
+      // Do NOT pass inferenceParams here yet; pass later when supported
     });
 
     // The SDK's Response type is a union that hides `tool_calls` & `finish_reason`;
