@@ -7,20 +7,18 @@
 
 import { app } from '../app';
 import { logger, logEmoji } from '../../utils/logger';
-import { PythonAgentClient } from '../../ai/agent-api/client';
+import { PythonAgentClient, AgentStreamEvent } from '../../ai/agent-api/client';
 import { contextManager } from '../../ai/context/manager';
 import * as conversationUtils from '../utils/conversation';
 import * as blockKit from '../utils/block-kit';
 import { ThreadInfo } from '../utils/conversation';
+import { KnownBlock } from '@slack/bolt';
 import * as os from 'os';
 import * as path from 'path';
 
 const aiClient = new PythonAgentClient();
-
-// Get the bot's user ID (will be populated after the app starts)
 let botUserId: string | undefined;
 
-// Initialize the bot user ID
 app.event('app_home_opened', async ({ client }) => {
     try {
         if (!botUserId) {
@@ -34,60 +32,185 @@ app.event('app_home_opened', async ({ client }) => {
 });
 
 /**
- * Process a message and generate an AI response
- * 
- * @param threadInfo Thread information
- * @param messageText Message text
- * @param client Slack client
- * @returns Promise resolving to the AI response
+ * Process a message using the streaming AI agent and update Slack.
  */
 async function processMessageAndGenerateResponse(
     threadInfo: ThreadInfo,
-    messageText: string,
+    messageTextOrContent: string,
     client: any
 ): Promise<void> {
-    try {
-        // Send a thinking message
-        const thinkingMessageTs = await conversationUtils.sendThinkingMessage(app, threadInfo);
+    let thinkingMessageTs: string | undefined;
+    let lastMessageTs: string | undefined;
+    let accumulatedContent = '';
+    let finalMetadata: Record<string, any> | undefined;
 
-        // Initialize context from history if needed
+    try {
+        // 1. Send initial "Thinking..." message
+        const thinkingMessage = await client.chat.postMessage({
+            channel: threadInfo.channelId,
+            thread_ts: threadInfo.threadTs,
+            ...blockKit.loadingMessage('Thinking...')
+        });
+        thinkingMessageTs = thinkingMessage.ts as string;
+        lastMessageTs = thinkingMessageTs;
+        logger.debug(`${logEmoji.slack} Sent thinking message ${thinkingMessageTs} to thread ${threadInfo.threadTs}`);
+
+        // 2. Initialize context (fetch history etc.)
         if (!botUserId) {
             const authInfo = await client.auth.test();
             botUserId = authInfo.user_id || '';
-            logger.info(`${logEmoji.slack} Bot user ID initialized: ${botUserId}`);
         }
-        await conversationUtils.initializeContextFromHistory(app, threadInfo, botUserId || '');
-
-        // Add the user message to the conversation context
-        conversationUtils.addUserMessageToThread(threadInfo, messageText);
-
-        // Get the conversation history
+        await conversationUtils.initializeContextFromHistory(app, threadInfo, botUserId);
         const conversationHistory = conversationUtils.getThreadHistory(threadInfo);
+        conversationUtils.addUserMessageToThread(threadInfo, messageTextOrContent);
 
-        // Generate a response from the AI
-        const aiResponse = await aiClient.generateResponse(
-            messageText,
+        // 3. Call the STREAMING function of the AI client
+        const eventStream = aiClient.generateResponseStream(
+            messageTextOrContent,
             conversationHistory
         );
 
-        // Update the thinking message with the AI response
-        await conversationUtils.updateThinkingMessageWithAIResponse(
-            app,
-            threadInfo,
-            thinkingMessageTs,
-            aiResponse.content,
-            aiResponse.metadata,
-            []
-        );
+        // 4. Process the events from the stream
+        let updateScheduled = false;
+        const UPDATE_INTERVAL_MS = 750;
+
+        const scheduleUpdate = async () => {
+            if (updateScheduled) return;
+            updateScheduled = true;
+
+            setTimeout(async () => {
+                try {
+                    if (!lastMessageTs) return;
+                    const messageUpdate = blockKit.aiResponseMessage(accumulatedContent + ' ');
+                    await conversationUtils.updateMessage(
+                        app,
+                        threadInfo.channelId,
+                        lastMessageTs,
+                        messageUpdate.blocks as KnownBlock[],
+                        messageUpdate.text + ' '
+                    );
+                    logger.debug(`${logEmoji.slack} Updated message ${lastMessageTs} with streamed content chunk.`);
+                } catch (error) {
+                    logger.error(`${logEmoji.error} Failed to update Slack message during stream`, { ts: lastMessageTs, error });
+                } finally {
+                    updateScheduled = false;
+                }
+            }, UPDATE_INTERVAL_MS);
+        };
+
+        for await (const event of eventStream) {
+            logger.debug(`${logEmoji.ai} Received agent event: ${event.type}`);
+
+            switch (event.type) {
+                case 'llm_chunk':
+                    if (typeof event.data === 'string' && event.data) {
+                        accumulatedContent += event.data;
+                        scheduleUpdate();
+                    }
+                    break;
+
+                case 'tool_calls':
+                    if (lastMessageTs) {
+                        const finalChunkUpdate = blockKit.aiResponseMessage(accumulatedContent);
+                        await conversationUtils.updateMessage(app, threadInfo.channelId, lastMessageTs, finalChunkUpdate.blocks as KnownBlock[], finalChunkUpdate.text);
+                    }
+                    const toolCallsData = event.data;
+                    if (Array.isArray(toolCallsData) && toolCallsData.length > 0) {
+                        const toolName = toolCallsData[0]?.function?.name || toolCallsData[0]?.name || 'een tool';
+                        const thinkingText = `Oké, ik gebruik nu de tool \`${toolName}\`... ${logEmoji.mcp}`;
+                        try {
+                            const toolThinkingMsg = await client.chat.postMessage({
+                                channel: threadInfo.channelId,
+                                thread_ts: threadInfo.threadTs,
+                                ...blockKit.loadingMessage(thinkingText)
+                            });
+                            lastMessageTs = toolThinkingMsg.ts as string;
+                            accumulatedContent = '';
+                            logger.info(`${logEmoji.slack} Posted tool usage message ${lastMessageTs} for tool ${toolName}`);
+                        } catch (postError) {
+                            logger.error(`${logEmoji.error} Failed to post tool usage message`, { postError });
+                            lastMessageTs = lastMessageTs || thinkingMessageTs;
+                        }
+                    }
+                    break;
+
+                case 'tool_result':
+                    if (lastMessageTs) {
+                        const toolResultData = event.data;
+                        const resultSummary = typeof toolResultData === 'string' ? toolResultData.substring(0, 100) + '...' : '[resultaat ontvangen]';
+                        const messageUpdate = blockKit.aiResponseMessage(`Tool \`${event.data?.tool_name || 'tool'}\` klaar. ${resultSummary}`);
+                        await conversationUtils.updateMessage(app, threadInfo.channelId, lastMessageTs, messageUpdate.blocks as KnownBlock[], messageUpdate.text);
+                        logger.info(`${logEmoji.slack} Updated tool usage message ${lastMessageTs} with result.`);
+                    }
+                    break;
+
+                case 'final_message':
+                    const finalData = event.data;
+                    if (finalData && typeof finalData.content === 'string') {
+                        accumulatedContent = finalData.content;
+                    }
+                    if (finalData && finalData.metadata) {
+                        finalMetadata = finalData.metadata;
+                    }
+                    break;
+
+                case 'error':
+                    logger.error(`${logEmoji.error} Error received from agent stream:`, event.data);
+                    if (lastMessageTs) {
+                        const errorBlocks = blockKit.errorMessage('Agent Error', 'Er is een fout opgetreden bij de agent.', String(event.data));
+                        await conversationUtils.updateMessage(app, threadInfo.channelId, lastMessageTs, errorBlocks.blocks as KnownBlock[], errorBlocks.text);
+                    }
+                    return;
+
+                default:
+                    logger.warn(`${logEmoji.warning} Received unknown/unhandled agent event type: ${event.type}`);
+            }
+        }
+
+        // 5. Final update after the stream
+        if (lastMessageTs) {
+            logger.info(`${logEmoji.slack} Stream finished. Updating final message ${lastMessageTs}.`);
+            await new Promise(resolve => setTimeout(resolve, UPDATE_INTERVAL_MS + 100));
+            const finalMessage = blockKit.aiResponseMessage(accumulatedContent, finalMetadata);
+            await conversationUtils.updateMessage(
+                app,
+                threadInfo.channelId,
+                lastMessageTs,
+                finalMessage.blocks as KnownBlock[],
+                finalMessage.text
+            );
+            conversationUtils.addAssistantMessageToThread(threadInfo, accumulatedContent);
+        } else {
+            logger.error(`${logEmoji.error} No message TS found to update after stream completed.`);
+        }
+
     } catch (error) {
-        logger.error(`${logEmoji.error} Error processing message and generating response`, { error });
-        await conversationUtils.sendErrorMessage(
-            app,
-            threadInfo,
-            'Error Generating Response',
-            'There was an error generating a response. Please try again later.',
-            error instanceof Error ? error.message : String(error)
-        );
+        logger.error(`${logEmoji.error} Error processing message stream or initial setup`, {
+            errorMessage: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+        });
+        if (thinkingMessageTs) {
+            try {
+                const errorBlocks = blockKit.errorMessage('Error Processing Request', 'An error occurred while generating the response.', error instanceof Error ? error.message : String(error));
+                await conversationUtils.updateMessage(
+                    app,
+                    threadInfo.channelId,
+                    thinkingMessageTs,
+                    errorBlocks.blocks as KnownBlock[],
+                    errorBlocks.text
+                );
+            } catch (updateError) {
+                logger.error(`${logEmoji.error} Failed to update thinking message ${thinkingMessageTs} with processing error`, { updateError });
+            }
+        } else {
+            await conversationUtils.sendErrorMessage(
+                app,
+                threadInfo,
+                'Error Processing Request',
+                'An error occurred while generating the response.',
+                error instanceof Error ? error.message : String(error)
+            );
+        }
     }
 }
 
