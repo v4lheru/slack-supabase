@@ -172,7 +172,6 @@ async def generate_stream(req: ChatRequest):
     if cleaned_messages:
         print(f"PY_AGENT_DEBUG (/generate): Last cleaned message (current user prompt part): {cleaned_messages[-1]}")
 
-
     # MCP server connection logic (no changes needed here for logging, it prints "MCP Server Connected (global)")
     if hasattr(_agent, 'mcp_servers') and _agent.mcp_servers and railway_mcp_server in _agent.mcp_servers:
         if not getattr(railway_mcp_server, "_connected", False):
