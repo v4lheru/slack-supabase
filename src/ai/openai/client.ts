@@ -28,7 +28,10 @@ export class OpenAIClient implements AIProvider {
 
     const tools = functions?.map(fn => ({
       type: 'function' as const,
-      function: { name: fn.name, description: fn.description, parameters: fn.parameters }
+      // The Response endpoint expects the flat FunctionTool shape
+      name: fn.name,
+      description: fn.description,
+      parameters: fn.parameters,
     }));
 
     const res = await this.client.responses.create({
@@ -43,16 +46,20 @@ export class OpenAIClient implements AIProvider {
       stream: options?.stream,
     });
 
+    // The SDK's Response type is a union that hides `tool_calls` & `finish_reason`;
+    // cast to loosen the type for result-parsing.
+    const anyRes = res as any;
+
     // Map SDK shape  AIResponse
-    const functionCalls: FunctionCall[] | undefined = res.tool_calls?.map(tc => ({
+    const functionCalls: FunctionCall[] | undefined = anyRes.tool_calls?.map((tc: any) => ({
       name: tc.function.name,
       arguments: JSON.parse(tc.function.arguments ?? '{}'),
     }));
 
     return {
-      content: res.output_text ?? '',
+      content: anyRes.output_text ?? '',
       functionCalls,
-      metadata: { model: res.model, finishReason: res.finish_reason },
+      metadata: { model: anyRes.model, finishReason: anyRes.finish_reason },
     };
   }
 
