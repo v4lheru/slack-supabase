@@ -8,6 +8,7 @@
 import { app } from '../app';
 import { logger, logEmoji } from '../../utils/logger';
 import { PythonAgentClient, AgentStreamEvent } from '../../ai/agent-api/client';
+import { MessageContent } from '../../ai/interfaces/provider';
 import { contextManager } from '../../ai/context/manager';
 import * as conversationUtils from '../utils/conversation';
 import * as blockKit from '../utils/block-kit';
