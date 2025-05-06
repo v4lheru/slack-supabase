@@ -9,10 +9,8 @@
 import { app } from './slack/app';
 import { logger, logEmoji } from './utils/logger';
 import { loadEnvironment, env } from './config/environment';
-import { OpenAIClient } from './ai/openai/client';
-import { mcpClient } from './mcp/client';
+import { PythonAgentClient } from './ai/agent-api/client';
 import { contextManager } from './ai/context/manager';
-import { AVAILABLE_FUNCTIONS } from './mcp/function-calling';
 
 // Import event handlers
 import './slack/events';
@@ -30,33 +28,14 @@ async function initializeComponents() {
             throw new Error('Missing required Slack environment variables');
         }
 
-        if (!env.OPENAI_API_KEY) {
-            throw new Error('Missing required OpenAI API key');
-        }
-
-        // MCP is optional: only warn if not set, don't throw
-        if (!env.MCP_SERVER_URL) {
-            logger.warn(`${logEmoji.warning} MCP server URL not set. Function calling will be disabled.`);
-        }
-        if (env.MCP_SERVER_URL && !env.MCP_AUTH_TOKEN) {
-            logger.warn(`${logEmoji.warning} MCP auth token not set. Connecting to MCP without authentication.`);
-        }
-
-        // Log that MCP client is ready (if configured)
-        if (env.MCP_SERVER_URL) {
-            logger.info(`${logEmoji.mcp} MCP client ready to use`);
+        if (!env.PY_AGENT_URL) {
+            throw new Error('Missing required Python Agent API URL');
         }
 
         // Initialize AI client
-        const aiClient = new OpenAIClient();
+        const aiClient = new PythonAgentClient();
         const models = await aiClient.getAvailableModels();
         logger.info(`${logEmoji.ai} AI client initialized with ${models.length} available models`);
-
-        // Log available functions
-        logger.info(`${logEmoji.mcp} ${AVAILABLE_FUNCTIONS.length} functions available for AI`);
-        AVAILABLE_FUNCTIONS.forEach(fn => {
-            logger.debug(`${logEmoji.mcp} Function: ${fn.name} - ${fn.description}`);
-        });
 
         // Initialize context manager
         logger.info(`${logEmoji.ai} Context manager initialized with capacity for ${contextManager.getContextCount()} contexts`);
