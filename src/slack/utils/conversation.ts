@@ -39,7 +39,7 @@ function createTextContent(text: string): MessageContent {
 }
 
 function createImageContent(url: string): MessageContent {
-  return { type: 'input_image', image_url: { url } };
+  return { type: 'image_url', image_url: url };
 }
 
 function createMultimodalUserMessage(
@@ -49,7 +49,7 @@ function createMultimodalUserMessage(
 ): ConversationMessage {
   const content: MessageContent[] = [
     createTextContent(text),
-    ...imageUrls.map((url) => createImageContent(url)),
+    ...imageUrls.map((url) => ({ type: 'image_url', image_url: url } as ImageContent)),
   ];
   return createUserMessage(content, userId);
 }
