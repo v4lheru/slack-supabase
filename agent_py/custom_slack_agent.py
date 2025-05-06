@@ -10,5 +10,5 @@ _agent = Agent(
     instructions="""You are an AI assistant for a Slack workspace.
 Be concise, use Slack-style markdown, and solve the user's request.
 """,
-    mcp_servers=["default"],
+    mcp_servers=["railway"],
 )
