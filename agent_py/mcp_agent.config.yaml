@@ -2,3 +2,6 @@ servers:
   railway:
     url: "https://eu1.make.com/mcp/api/v1/u/2a183f33-4498-4ebe-b558-49e956ee0c29/sse"
     type: "sse"
+  primary_railway:
+    url: "https://primary-nj0x-production.up.railway.app/mcp/1b39de32-b22f-4323-ad9e-e332c41930ce/sse"
+    type: "sse"
