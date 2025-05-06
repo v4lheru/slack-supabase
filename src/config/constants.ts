@@ -14,13 +14,6 @@ export const APP_INFO = {
     DESCRIPTION: 'A Slack bot that leverages OpenRouter AI and MCP integration',
 };
 
-/**
- * Default system message for AI interactions
- */
-export const DEFAULT_SYSTEM_MESSAGE = require('fs').readFileSync(
-    require('path').join(__dirname, '../../system_prompt.md'),
-    'utf-8'
-);
 
 
 /**

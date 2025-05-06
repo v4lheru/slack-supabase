@@ -7,7 +7,6 @@
 
 import { ConversationMessage, MessageRole } from '../interfaces/provider';
 import { logger, logEmoji } from '../../utils/logger';
-import { DEFAULT_SYSTEM_MESSAGE } from '../../config/constants';
 
 function createSystemMessage(content: string): ConversationMessage {
     return {
@@ -96,7 +95,7 @@ export class ContextManager {
         threadId: string,
         channelId: string,
         userId?: string,
-        systemMessage: string = DEFAULT_SYSTEM_MESSAGE
+        systemMessage: string = "You are a helpful assistant."
     ): ConversationContext {
         // Check if we need to evict old contexts
         if (this.contexts.size >= this.maxContexts) {
