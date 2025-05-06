@@ -411,75 +411,126 @@ export function aiResponseMessage(
     metadata?: Record<string, any>,
     functionResults?: string[]
 ): { blocks: Block[]; text: string } {
-    // Slack requires at least one visible character in the first section.
+    // Slack requires at least one visible character.
     const safeContent = content && content.trim().length > 0
         ? content
-        : '(no content)';            // fallback if the model returned an empty string
+        : '(no content)';
 
-    // Split content into chunks for Slack section blocks
-    // Prefer splitting on double newlines, but also enforce a max length per block
-    const MAX_BLOCK_TEXT_LENGTH = 200;
-    function splitContentToSections(text: string): string[] {
-        const sections: string[] = [];
-        let remaining = text;
+    // --- NEW BLOCK CREATION LOGIC ---
+    const MAX_CHARS_PER_BLOCK = 450; // Increased limit
+    const finalContentBlocks: Block[] = [];
+    const lines = safeContent.split('\n');
+    let currentSectionText = '';
 
-        while (remaining.length > 0) {
-            if (remaining.length <= MAX_BLOCK_TEXT_LENGTH) {
-                sections.push(remaining);
-                break;
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        // Check for divider line '---'
+        if (trimmedLine === '---') {
+            // If there's text accumulated, push it as a section first
+            if (currentSectionText.length > 0) {
+                finalContentBlocks.push(section(currentSectionText));
+                currentSectionText = ''; // Reset buffer
             }
-
-            // Try to split at the end of a sentence within the limit
-            const slice = remaining.slice(0, MAX_BLOCK_TEXT_LENGTH);
-            let splitIdx = slice.lastIndexOf('. ');
-            if (splitIdx === -1) splitIdx = slice.lastIndexOf('! ');
-            if (splitIdx === -1) splitIdx = slice.lastIndexOf('? ');
-            if (splitIdx === -1) splitIdx = slice.lastIndexOf('\n\n');
-            if (splitIdx === -1) splitIdx = slice.lastIndexOf('\n');
-            if (splitIdx === -1) splitIdx = slice.lastIndexOf(' ');
-
-            if (splitIdx > 0 && splitIdx > MAX_BLOCK_TEXT_LENGTH * 0.5) {
-                // Split at the found punctuation/space
-                sections.push(remaining.slice(0, splitIdx + 1).trim());
-                remaining = remaining.slice(splitIdx + 1).trim();
-            } else {
-                // No good split point, just hard split
-                sections.push(slice.trim());
-                remaining = remaining.slice(MAX_BLOCK_TEXT_LENGTH).trim();
-            }
+            // Add the divider
+            finalContentBlocks.push(divider());
+            continue; // Go to next line
         }
-        return sections;
+
+        // Check if adding the current line (plus a potential newline char) exceeds the limit
+        const potentialLength = currentSectionText.length + (currentSectionText.length > 0 ? 1 : 0) + line.length;
+
+        if (potentialLength <= MAX_CHARS_PER_BLOCK) {
+            // Line fits, add it to the current buffer
+            if (currentSectionText.length > 0) {
+                currentSectionText += '\n';
+            }
+            currentSectionText += line;
+        } else {
+            // Line does not fit, push the current buffer as a section (if not empty)
+            if (currentSectionText.length > 0) {
+                finalContentBlocks.push(section(currentSectionText));
+            }
+            // Start a new buffer with the current line.
+            // Handle the edge case where the line *itself* is too long.
+            let remainingLine = line;
+            while (remainingLine.length > MAX_CHARS_PER_BLOCK) {
+                 let splitPoint = remainingLine.lastIndexOf(' ', MAX_CHARS_PER_BLOCK);
+                 // If no space found or space is at the beginning, force split
+                 if (splitPoint <= 0) splitPoint = MAX_CHARS_PER_BLOCK;
+                 finalContentBlocks.push(section(remainingLine.substring(0, splitPoint)));
+                 remainingLine = remainingLine.substring(splitPoint).trimStart();
+            }
+             currentSectionText = remainingLine; // The remainder becomes the start of the new section
+        }
     }
 
-    const blocks: Block[] = [];
-    const sections = splitContentToSections(safeContent);
-    for (const sectionText of sections) {
-        blocks.push(section(sectionText));
+    // Add any remaining text in the buffer as the last section
+    if (currentSectionText.length > 0) {
+        finalContentBlocks.push(section(currentSectionText));
+    }
+
+     // Ensure we always have at least one block if there was original content
+     if (safeContent !== '(no content)' && finalContentBlocks.length === 0) {
+          // This can happen if the content was just "---"
+          // Let's just add the fallback text in this case
+          finalContentBlocks.push(section(safeContent.substring(0, MAX_CHARS_PER_BLOCK)));
+     } else if (finalContentBlocks.length === 0 && safeContent === '(no content)') {
+          // Handle truly empty input
+          finalContentBlocks.push(section(safeContent));
+     }
+    // --- END NEW BLOCK CREATION LOGIC ---
+
+
+    const blocks: Block[] = [...finalContentBlocks]; // Start with the generated content blocks
+
+    // Helper to split long function results into blocks
+    function createBlocksFromContent(text: string): Block[] {
+        const blocks: Block[] = [];
+        let remaining = text;
+        while (remaining.length > 0) {
+            if (remaining.length <= MAX_CHARS_PER_BLOCK) {
+                blocks.push(section(remaining));
+                break;
+            }
+            let splitPoint = remaining.lastIndexOf(' ', MAX_CHARS_PER_BLOCK);
+            if (splitPoint <= 0) splitPoint = MAX_CHARS_PER_BLOCK;
+            blocks.push(section(remaining.substring(0, splitPoint)));
+            remaining = remaining.substring(splitPoint).trimStart();
+        }
+        return blocks;
     }
 
     // Add function results if provided
     if (functionResults && functionResults.length > 0) {
         blocks.push(divider());
-
         for (const result of functionResults) {
-            blocks.push(
-                section(mrkdwn(`\`\`\`\n${result}\n\`\`\``)),
-            );
+            // Ensure function results are also split if they are too long
+            const resultSections = createBlocksFromContent(mrkdwn(`\`\`\`\n${result}\n\`\`\``).text);
+             blocks.push(...resultSections);
         }
     }
 
     // Add metadata if provided
     if (metadata && Object.keys(metadata).length > 0) {
-        blocks.push(
-            divider(),
-            context([
-                mrkdwn(`*Model:* ${metadata.model || 'Unknown'}`),
-            ]),
-        );
+        blocks.push(divider());
+        const metadataElements: Text[] = [];
+        if (metadata.model) {
+             metadataElements.push(mrkdwn(`*Model:* ${metadata.model}`));
+        }
+        // Add other metadata fields if needed, separated by " | " or similar
+        // Example: if (metadata.finishReason) { metadataElements.push(mrkdwn(`*Finish:* ${metadata.finishReason}`)) }
+
+        if (metadataElements.length > 0) {
+             blocks.push(context(metadataElements));
+        }
     }
+
+    // Generate fallback text for notifications (keep it short)
+    const fallbackText = safeContent.substring(0, 150) + (safeContent.length > 150 ? '...' : '');
 
     return {
         blocks,
-        text: safeContent.substring(0, 100) + (safeContent.length > 100 ? '...' : ''),
+        text: fallbackText, // Use short fallback text
     };
 }
