@@ -8,6 +8,7 @@ try:
 except ModuleNotFoundError:
     from openai_agents import Runner   # fallback for some installs
 from custom_slack_agent import _agent
+from agents_mcp import RunnerContext
 
 app = FastAPI(title="Slack-Agent API")
 
@@ -22,6 +23,7 @@ class ChatResponse(BaseModel):
 @app.post("/generate", response_model=ChatResponse)
 async def generate(req: ChatRequest):
     messages = req.history + [{"role": "user", "content": req.prompt}]
-    run = await Runner.run(_agent, messages)
+    mcp_context = RunnerContext()
+    run = await Runner.run(_agent, messages, context=mcp_context)
     out = await run.final_output()
     return ChatResponse(content=out.content, metadata={"model": _agent.model})
