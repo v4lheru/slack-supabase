@@ -17,7 +17,7 @@ export class PythonAgentClient implements AIProvider {
     const res = await axios.post(`${env.PY_AGENT_URL}/generate`, {
       prompt,
       history: conversationHistory
-    }, { timeout: (options?.timeout ?? 30000) });
+    }, { timeout: 30000 });
 
     return res.data as AIResponse;
   }
