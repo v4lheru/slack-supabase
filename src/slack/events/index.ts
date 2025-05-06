@@ -15,6 +15,8 @@ import { AVAILABLE_FUNCTIONS, handleFunctionCall, formatFunctionCallResult } fro
 import { DEFAULT_MODEL } from '../../ai/openrouter/models';
 import { FunctionCall } from '../../ai/interfaces/provider';
 import { ThreadInfo } from '../utils/conversation';
+import * as os from 'os';
+import * as path from 'path';
 
 const aiClient = new OpenAIClient();
 
@@ -133,7 +135,12 @@ import axios from 'axios';
 async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string, filetype?: string): Promise<string> {
     // Use the filetype from Slack if available, default to mp3
     const ext = filetype ? filetype.toLowerCase() : 'mp3';
-    const tempFilePath = `/tmp/${Date.now()}-audio-upload.${ext}`;
+    const tempDir = os.tmpdir();               // cross-platform temp directory
+    const tempFilePath = path.join(
+      tempDir,
+      `${Date.now()}-audio-upload.${ext}`
+    );
+    require('fs').mkdirSync(tempDir, { recursive: true });  // ensure dir exists
     const writer = require('fs').createWriteStream(tempFilePath);
 
     // Add Slack auth header if needed
