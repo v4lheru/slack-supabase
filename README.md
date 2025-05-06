@@ -185,3 +185,85 @@ MIT
 
 - [OpenRouter](https://openrouter.ai/) for providing access to multiple AI models
 - [Slack Bolt Framework](https://slack.dev/bolt-js/concepts) for simplifying Slack app development
+# Multi-Provider AI Slack Bot with MCP and Python Agent Integration
+
+## Overview
+
+This project is a Slack bot that leverages OpenAI's capabilities, the Model-Context-Protocol (MCP) tool interface, and a Python-based agent service to provide advanced AI-powered interactions in Slack. The architecture is designed to be modular and extensible, allowing for integration with both OpenAI and custom MCP tools via a Python microservice.
+
+## What We're Trying to Do
+
+- **Enable advanced AI in Slack:** Users can interact with an AI assistant in Slack, which can answer questions, perform actions, and call external tools.
+- **Integrate MCP tools:** The bot can call tools exposed via the MCP protocol, allowing for dynamic function calling and automation.
+- **Use a Python Agent Service:** Instead of handling all AI logic in Node.js, a Python FastAPI service runs an OpenAI Agent (with MCP tool support) and exposes a simple HTTP API for the Node.js Slack bot to call.
+- **Separation of concerns:** Node.js handles Slack events and messaging, while Python handles AI reasoning and tool invocation.
+
+## Architecture
+
+```
+Slack  <--->  Node.js (Bolt)  <--HTTP-->  Python Agent (FastAPI, OpenAI Agents SDK)  <--->  MCP Tools
+```
+
+- **Node.js:** Listens for Slack events, manages context, and relays user messages to the Python agent.
+- **Python (FastAPI):** Runs an OpenAI Agent with MCP tool integration, processes messages, and returns AI responses.
+- **MCP Tools:** Exposed via the MCP protocol, allowing the agent to perform actions like fetching sales data, creating tickets, etc.
+
+## Key Components
+
+- `src/ai/agent-api/client.ts`: Node.js client for communicating with the Python agent service.
+- `agent_py/server.py`: FastAPI server exposing the `/generate` endpoint for AI responses.
+- `agent_py/mcp_agent.py`: Defines the OpenAI Agent with MCP tool integration.
+- `src/slack/events/index.ts`: Handles Slack events and routes messages to the AI provider.
+- `src/config/environment.ts`: Loads and validates environment variables.
+
+## Setup
+
+### 1. Python Agent Service
+
+1. Go to the `agent_py/` directory.
+2. Copy `.env.example` to `.env` and fill in your OpenAI and MCP credentials.
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Start the FastAPI server:
+   ```bash
+   uvicorn server:app --host 0.0.0.0 --port 8001
+   ```
+
+### 2. Node.js Slack Bot
+
+1. Set `PY_AGENT_URL` in your `.env` to the Python agent's URL (e.g., `http://localhost:8001`).
+2. Install Node.js dependencies:
+   ```bash
+   npm install
+   ```
+3. Build and start the bot:
+   ```bash
+   npm run build
+   npm start
+   ```
+
+## How It Works
+
+- When a user sends a message in Slack, the Node.js bot receives it and sends the message (plus conversation history) to the Python agent.
+- The Python agent uses OpenAI's Agents SDK and the MCP tool to process the message, call any necessary tools, and generate a response.
+- The response is sent back to Node.js, which posts it in the Slack thread.
+
+## Why This Approach?
+
+- **Flexibility:** Easily add or update tools in the MCP server without changing the Node.js code.
+- **Separation:** Keep Slack/event logic in Node.js and AI/tool logic in Python.
+- **Future-proof:** Ready for new OpenAI Agent SDK features and tool integrations.
+
+## Requirements
+
+- Node.js 18+
+- Python 3.10+
+- Slack App credentials
+- OpenAI API key
+- MCP server (for tool integration)
+
+## License
+
+MIT
