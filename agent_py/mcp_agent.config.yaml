@@ -1,0 +1,4 @@
+servers:
+  railway:
+    url: "https://primary-nj0x-production.up.railway.app/mcp/5ecc97d5-7413-4f29-97c1-c7f0aae41a59/sse"
+    type: "sse"
