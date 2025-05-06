@@ -46,10 +46,10 @@ async def generate(req: ChatRequest):
             out = run.final_output
         finally:
             await railway_mcp_server.cleanup()
-        output_content = out.content if out and hasattr(out, "content") else ""
+        output_content = out.content if out and hasattr(out, "content") else out if isinstance(out, str) else ""
         return ChatResponse(content=output_content, metadata={"model": _agent.model})
     else:
         run = await Runner.run(_agent, cleaned_messages)
         out = run.final_output
-        output_content = out.content if out and hasattr(out, "content") else ""
+        output_content = out.content if out and hasattr(out, "content") else out if isinstance(out, str) else ""
         return ChatResponse(content=output_content, metadata={"model": _agent.model})
