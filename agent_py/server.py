@@ -26,7 +26,9 @@ class ChatResponse(BaseModel):
 # (No longer manages connect/cleanup, only yields agent events)
 async def stream_agent_events(agent, messages):
     try:
-        stream = await Runner.run_streamed(agent, messages)
+        # Runner.run_streamed already returns an **async generator**.
+        # Awaiting it raises a TypeError, so just keep the reference.
+        stream = Runner.run_streamed(agent, messages)
         print("Agent stream started")
         async for event in stream:
             output_event = None
