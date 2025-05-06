@@ -8,16 +8,52 @@
 import { App } from '@slack/bolt';
 import { ConversationMessage, MessageRole, MessageContent } from '../../ai/interfaces/provider';
 import { contextManager } from '../../ai/context/manager';
-import {
-    createSystemMessage,
-    createUserMessage,
-    createAssistantMessage,
-    createMultimodalUserMessage,
-    createTextContent,
-    createImageContent
-} from '../../ai/openrouter/formatter';
 import { logger, logEmoji } from '../../utils/logger';
 import * as blockKit from './block-kit';
+
+// --- local helpers to replace removed openrouter/formatter ---
+function createUserMessage(
+  content: string | MessageContent[],
+  userId?: string,
+): ConversationMessage {
+  return {
+    role: 'user',
+    content,
+    name: userId,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function createAssistantMessage(
+  content: string | MessageContent[],
+): ConversationMessage {
+  return {
+    role: 'assistant',
+    content,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function createTextContent(text: string): MessageContent {
+  return { type: 'text', text };
+}
+
+function createImageContent(url: string): MessageContent {
+  return { type: 'image_url', image_url: { url } };
+}
+
+function createMultimodalUserMessage(
+  text: string,
+  imageUrls: string[],
+  userId?: string,
+): ConversationMessage {
+  const content: MessageContent[] = [
+    createTextContent(text),
+    ...imageUrls.map((url) => createImageContent(url)),
+  ];
+  return createUserMessage(content, userId);
+}
+// ----------------------------------------------------------------
 
 /**
  * Thread information
