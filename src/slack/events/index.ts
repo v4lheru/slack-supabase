@@ -271,9 +271,6 @@ async function processMessageAndGenerateResponse(
 }
 
 
-// Handle message events
-import axios from 'axios';
-
 async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string, filetype?: string): Promise<string> {
     // Use the filetype from Slack if available, default to mp3
     const ext = filetype ? filetype.toLowerCase() : 'mp3';
