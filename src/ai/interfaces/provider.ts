@@ -13,7 +13,7 @@ export type MessageRole = 'user' | 'assistant' | 'system';
 /**
  * Content types for multimodal messages
  */
-export type ContentType = 'text' | 'image_url';
+export type ContentType = 'text' | 'input_image';
 
 /**
  * Text content for a message
@@ -27,7 +27,7 @@ export interface TextContent {
  * Image content for a message
  */
 export interface ImageContent {
-    type: 'image_url';
+    type: 'input_image';
     image_url: string;
 }
 

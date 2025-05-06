@@ -379,7 +379,7 @@ app.message(async ({ message, client, context }) => {
             }
             multimodalContent.push(
                 ...publicUrls.map(url => ({
-                    type: 'image_url' as const,
+                    type: 'input_image' as const,
                     image_url: url,
                 }))
             );
