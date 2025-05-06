@@ -23,39 +23,41 @@ class ChatResponse(BaseModel):
     metadata: dict = {}
 
 # --- Streaming generator for agent events ---
-async def stream_agent_events(agent, messages, mcp_server_instance=None):
-    server_connected = False
+# (No longer manages connect/cleanup, only yields agent events)
+async def stream_agent_events(agent, messages):
     try:
-        if mcp_server_instance:
-            await mcp_server_instance.connect()
-            server_connected = True
-            print("MCP Server Connected")
         stream = await Runner.run_streamed(agent, messages)
         print("Agent stream started")
         async for event in stream:
+            output_event = None
+            event_type = 'unknown'
             try:
-                event_type = event.type
-                event_data = event.data
+                event_type = getattr(event, 'type', 'unknown')
+                event_data = getattr(event, 'data', None)
+                try:
+                    json.dumps(event_data)
+                except TypeError:
+                    print(f"Warning: Event data for type '{event_type}' is not directly JSON serializable. Converting to string.")
+                    event_data = str(event_data)
                 output_event = {"type": event_type, "data": event_data}
                 print(f"Streaming event: {event_type}")
-            except Exception as serialization_error:
-                print(f"Error preparing event data: {serialization_error}")
-                output_event = {"type": "error", "data": f"Failed to serialize event: {getattr(event, 'type', 'unknown')}"}
-            try:
-                yield f"{json.dumps(output_event)}\n"
-                await asyncio.sleep(0.01)
-            except TypeError as json_error:
-                print(f"Error serializing event to JSON: {json_error}")
-                yield f"{json.dumps({'type': 'error', 'data': f'JSON serialization error for event type {getattr(event, 'type', 'unknown')}'})}\n"
-                await asyncio.sleep(0.01)
+            except Exception as processing_error:
+                print(f"Error processing event structure: {processing_error}")
+                output_event = {"type": "processing_error", "data": f"Failed to process event: {str(processing_error)}"}
+            if output_event:
+                try:
+                    yield f"{json.dumps(output_event)}\n"
+                    await asyncio.sleep(0.01)
+                except TypeError as json_error:
+                    print(f"Error serializing processed event to JSON: {json_error}")
+                    yield f"{json.dumps({'type': 'error', 'data': f'JSON serialization error for event type {event_type}'})}\n"
+                    await asyncio.sleep(0.01)
     except Exception as e:
-        print(f"Error during agent streaming: {e}")
-        yield f"{json.dumps({'type': 'error', 'data': str(e)})}\n"
+        print(f"Error during agent streaming execution: {e}")
+        yield f"{json.dumps({'type': 'error', 'data': f'Agent execution failed: {str(e)}'})}\n"
         await asyncio.sleep(0.01)
     finally:
-        if server_connected and mcp_server_instance:
-            await mcp_server_instance.cleanup()
-            print("MCP Server Cleaned Up")
+        print("Agent stream generator finished.")
 
 # --- Streaming endpoint for /generate ---
 @app.post("/generate")
@@ -78,7 +80,27 @@ async def generate_stream(req: ChatRequest):
     if hasattr(_agent, 'mcp_servers') and _agent.mcp_servers and railway_mcp_server in _agent.mcp_servers:
         server_instance_to_manage = railway_mcp_server
 
+    async def managed_stream_wrapper():
+        server_connected = False
+        try:
+            if server_instance_to_manage:
+                await server_instance_to_manage.connect()
+                server_connected = True
+                print("MCP Server Connected (wrapper)")
+            async for event_json_line in stream_agent_events(_agent, cleaned_messages):
+                yield event_json_line
+        except Exception as wrap_err:
+            print(f"Error in managed stream wrapper: {wrap_err}")
+            try:
+                yield f"{json.dumps({'type': 'error', 'data': f'Stream wrapper error: {str(wrap_err)}'})}\n"
+            except Exception:
+                pass
+        finally:
+            if server_connected and server_instance_to_manage:
+                await server_instance_to_manage.cleanup()
+                print("MCP Server Cleaned Up (wrapper)")
+
     return StreamingResponse(
-        stream_agent_events(_agent, cleaned_messages, server_instance_to_manage),
+        managed_stream_wrapper(),
         media_type="application/x-json-stream"
     )
