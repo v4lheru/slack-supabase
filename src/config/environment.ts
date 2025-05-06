@@ -21,6 +21,11 @@ export interface EnvironmentVariables {
     // MCP
     MCP_SERVER_URL: string;
     MCP_AUTH_TOKEN: string;
+    /**
+     * Optional: base URL for an SSE-style MCP (e.g.
+     * https://primary-nj0x-production.up.railway.app/mcp/)
+     */
+    MCP_SSE_URL?: string;
 
     // App Configuration
     NODE_ENV: 'development' | 'production' | 'test';
@@ -70,6 +75,8 @@ export function loadEnvironment(): EnvironmentVariables {
         // MCP
         MCP_SERVER_URL: process.env.MCP_SERVER_URL || 'http://localhost:3000',
         MCP_AUTH_TOKEN: process.env.MCP_AUTH_TOKEN || '',
+        // new  leave undefined if you dont use SSE
+        MCP_SSE_URL: process.env.MCP_SSE_URL,
 
         // App Configuration
         NODE_ENV: (process.env.NODE_ENV as EnvironmentVariables['NODE_ENV']) || DEFAULT_ENV.NODE_ENV,

@@ -8,6 +8,8 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { env } from '../config/environment';
 import { logger, logEmoji } from '../utils/logger';
+import { Readable } from 'node:stream';
+import { createParser } from 'eventsource-parser';
 
 /**
  * MCP client configuration
@@ -18,6 +20,8 @@ interface MCPClientConfig {
     timeout: number;
     retryCount: number;
     retryDelay: number;
+    /** when set, enables SSE streaming for long-running ops */
+    sseUrl?: string;
 }
 
 /**
@@ -60,6 +64,8 @@ export class MCPClient {
             timeout: config?.timeout || 30000, // 30 seconds
             retryCount: config?.retryCount || 3,
             retryDelay: config?.retryDelay || 1000, // 1 second
+            // < new line
+            sseUrl: config?.sseUrl || env.MCP_SSE_URL,
         };
 
         // Create axios client with default configuration
@@ -220,14 +226,59 @@ export class MCPClient {
     }
 
     /**
-     * Wait for an asynchronous operation to complete
-     * 
-     * @param operationId The operation ID to wait for
-     * @param maxWaitTimeMs Maximum time to wait in milliseconds
-     * @param pollIntervalMs Polling interval in milliseconds
-     * @returns Promise resolving to the MCP response
+     * Consume a Server-Sent-Events stream and pass each JSON chunk to the caller.
+     */
+    private async streamFromSSE(onMessage: (msg: any) => void): Promise<void> {
+        if (!this.config.sseUrl) throw new Error('SSE URL not configured');
+
+        const res = await this.client.get<Readable>(this.config.sseUrl, {
+            responseType: 'stream',
+            headers: { Accept: 'text/event-stream' },
+        });
+
+        const parser = createParser(event => {
+            if (event.type === 'event' && event.data) {
+                try { onMessage(JSON.parse(event.data)); } catch { /* ignore non-JSON */ }
+            }
+        });
+
+        (res.data as Readable).on('data', (chunk: Buffer) => parser.feed(chunk.toString()));
+    }
+
+    /**
+     * Replacement for waitForOperation that prefers SSE when available.
      */
     public async waitForOperation(
+        operationId: string,
+        maxWaitTimeMs: number = 60000, // 1 minute
+        pollIntervalMs: number = 1000 // 1 second
+    ): Promise<MCPResponse> {
+        // If the server gave us an SSE endpoint, just sit on it.
+        if (this.config.sseUrl) {
+            return new Promise<MCPResponse>((resolve) => {
+                let final: MCPResponse | undefined;
+
+                this.streamFromSSE((data) => {
+                    if (data?.status === 'success' || data?.status === 'error') {
+                        final = data;
+                        resolve(final);
+                    }
+                }).catch(err => {
+                    logger.error(`${logEmoji.error} SSE stream failed  falling back to polling`, { err });
+                    // fallback to normal polling
+                    resolve(this.pollOperation(operationId, maxWaitTimeMs, pollIntervalMs));
+                });
+            });
+        }
+
+        // original behaviour (unchanged)
+        return this.pollOperation(operationId, maxWaitTimeMs, pollIntervalMs);
+    }
+
+    /**
+     * Polling fallback for waitForOperation.
+     */
+    private async pollOperation(
         operationId: string,
         maxWaitTimeMs: number = 60000, // 1 minute
         pollIntervalMs: number = 1000 // 1 second
