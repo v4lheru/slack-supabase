@@ -25,6 +25,9 @@ build/
 .DS_Store
 Thumbs.db
 
+# Python cache
+__pycache__/
+
 # Logs
 logs/
 *.log
