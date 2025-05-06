@@ -7,7 +7,7 @@
 
 import { app } from '../app';
 import { logger, logEmoji } from '../../utils/logger';
-import { OpenRouterClient } from '../../ai/openrouter/client';
+import { OpenAIClient } from '../../ai/openai/client';
 import { contextManager } from '../../ai/context/manager';
 import * as conversationUtils from '../utils/conversation';
 import * as blockKit from '../utils/block-kit';
@@ -16,8 +16,7 @@ import { DEFAULT_MODEL } from '../../ai/openrouter/models';
 import { FunctionCall } from '../../ai/interfaces/provider';
 import { ThreadInfo } from '../utils/conversation';
 
-// Create an instance of the OpenRouter client
-const aiClient = new OpenRouterClient();
+const aiClient = new OpenAIClient();
 
 // Get the bot's user ID (will be populated after the app starts)
 let botUserId: string | undefined;
@@ -166,8 +165,8 @@ async function transcribeAudioWithOpenAI(fileUrl: string, prompt?: string, filet
     formData.append('response_format', 'text');
 
     logger.info(`${logEmoji.info} Sending audio file to OpenAI for transcription...`);
-    // Prefer OPENAI_API_KEY for direct OpenAI calls, fallback to OPENROUTER_API_KEY for legacy support
-    const openaiApiKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
+    // Use only OPENAI_API_KEY for direct OpenAI calls
+    const openaiApiKey = process.env.OPENAI_API_KEY;
     logger.info(`[DEBUG] OpenAI transcription headers: ${JSON.stringify({
         ...formData.getHeaders(),
         'Authorization': `Bearer ${openaiApiKey}`,

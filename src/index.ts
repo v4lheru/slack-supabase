@@ -9,7 +9,7 @@
 import { app } from './slack/app';
 import { logger, logEmoji } from './utils/logger';
 import { loadEnvironment, env } from './config/environment';
-import { OpenRouterClient } from './ai/openrouter/client';
+import { OpenAIClient } from './ai/openai/client';
 import { mcpClient } from './mcp/client';
 import { contextManager } from './ai/context/manager';
 import { AVAILABLE_FUNCTIONS } from './mcp/function-calling';
@@ -49,7 +49,7 @@ async function initializeComponents() {
         }
 
         // Initialize AI client
-        const aiClient = new OpenRouterClient();
+        const aiClient = new OpenAIClient();
         const models = await aiClient.getAvailableModels();
         logger.info(`${logEmoji.ai} AI client initialized with ${models.length} available models`);
         logger.info(`${logEmoji.ai} Default model: ${DEFAULT_MODEL}`);

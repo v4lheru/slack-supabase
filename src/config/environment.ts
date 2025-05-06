@@ -9,18 +9,14 @@
 import dotenv from 'dotenv';
 import { logger } from '../utils/logger';
 
-// Environment variable interface
 export interface EnvironmentVariables {
     // Slack
     SLACK_BOT_TOKEN: string;
     SLACK_SIGNING_SECRET: string;
     SLACK_APP_TOKEN: string;
 
-    // OpenRouter
-    OPENROUTER_API_KEY: string;
-
-    // OpenAI (for direct API calls, e.g. audio transcription)
-    OPENAI_API_KEY?: string;
+    // OpenAI
+    OPENAI_API_KEY: string;
 
     // MCP
     MCP_SERVER_URL: string;
@@ -31,18 +27,16 @@ export interface EnvironmentVariables {
     LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
 }
 
-// Default values for optional environment variables
 const DEFAULT_ENV = {
     NODE_ENV: 'development',
     LOG_LEVEL: 'info',
 } as const;
 
-// Required environment variables
 const REQUIRED_ENV_VARS = [
     'SLACK_BOT_TOKEN',
     'SLACK_SIGNING_SECRET',
     'SLACK_APP_TOKEN',
-    'OPENROUTER_API_KEY',
+    'OPENAI_API_KEY',
 ];
 
 /**
@@ -70,8 +64,8 @@ export function loadEnvironment(): EnvironmentVariables {
         SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET!,
         SLACK_APP_TOKEN: process.env.SLACK_APP_TOKEN!,
 
-        // OpenRouter
-        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY!,
+        // OpenAI
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
 
         // MCP
         MCP_SERVER_URL: process.env.MCP_SERVER_URL || 'http://localhost:3000',

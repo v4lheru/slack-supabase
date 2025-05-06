@@ -16,6 +16,7 @@ export enum OpenRouterModelId {
 
     // OpenAI models
     GPT4O_LATEST = 'openai/chatgpt-4o-latest',
+    GPT4O_MINI = 'gpt-4o-mini',
 
     // Anthropic models
     CLAUDE_3_7_SONNET = 'anthropic/claude-3.7-sonnet',
@@ -41,7 +42,7 @@ export enum OpenRouterModelId {
 /**
  * Default model to use if none specified
  */
-export const DEFAULT_MODEL = OpenRouterModelId.MISTRAL_SMALL;
+export const DEFAULT_MODEL = OpenRouterModelId.GPT4O_MINI;
 
 /**
  * Model information for OpenRouter models
@@ -65,6 +66,18 @@ export const OPENROUTER_MODELS: Record<OpenRouterModelId, ModelInfo> = {
     [OpenRouterModelId.GPT4O_LATEST]: {
         id: OpenRouterModelId.GPT4O_LATEST,
         name: 'GPT-4o Latest',
+        provider: 'OpenAI',
+        capabilities: {
+            functionCalling: true,
+            vision: true,
+            streaming: true,
+        },
+        contextWindow: 128000,
+        maxOutputTokens: 4096,
+    },
+    [OpenRouterModelId.GPT4O_MINI]: {
+        id: OpenRouterModelId.GPT4O_MINI,
+        name: 'GPT-4o Mini',
         provider: 'OpenAI',
         capabilities: {
             functionCalling: true,
