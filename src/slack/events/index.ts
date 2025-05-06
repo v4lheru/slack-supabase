@@ -17,7 +17,38 @@ import * as os from 'os';
 import * as path from 'path';
 import axios from 'axios';
 
-// Helper function to download image and convert to Base64 data URI
+// Simple cache for usernames
+const userNameCache = new Map<string, string>();
+
+// Function to get username (fetches from Slack API if not cached)
+async function getUserName(userId: string, client: any): Promise<string> {
+    if (!userId) return 'Gebruiker'; // Fallback
+    if (userNameCache.has(userId)) {
+        return userNameCache.get(userId)!;
+    }
+
+    try {
+        logger.debug(`${logEmoji.slack} Fetching user info for ${userId}`);
+        const userInfo = await client.users.info({ user: userId });
+        if (userInfo.ok && userInfo.user) {
+            // Use display_name if available and non-empty, otherwise real_name, fallback to id
+            const displayName = userInfo.user.profile?.display_name_normalized || userInfo.user.profile?.display_name;
+            const realName = userInfo.user.profile?.real_name_normalized || userInfo.user.profile?.real_name;
+            const userName = displayName || realName || userInfo.user.name || userId;
+            userNameCache.set(userId, userName);
+            logger.debug(`${logEmoji.slack} Cached username ${userName} for ${userId}`);
+            return userName;
+        } else {
+             logger.warn(`${logEmoji.warning} Failed to fetch user info for ${userId}`, userInfo.error);
+        }
+    } catch (error) {
+        logger.error(`${logEmoji.error} Error fetching user info for ${userId}`, { error });
+    }
+
+    // Fallback if API fails
+    userNameCache.set(userId, userId); // Cache the ID as fallback to prevent retries
+    return userId;
+}
 async function downloadAndEncodeImage(fileUrl: string, filetype: string): Promise<string | null> {
     try {
         logger.info(`${logEmoji.info} Downloading image for Base64 encoding: ${fileUrl}`);
@@ -103,7 +134,9 @@ async function processMessageAndGenerateResponse(
         }
         // Hierna is botUserId gegarandeerd een string
         const currentBotUserIdForHistory = botUserId;
-        // --- EINDE TOEGEVOEGDE CODE ---
+
+        // Fetch username for the current message
+        const userName = await getUserName(threadInfo.userId || '', client);
 
         // 1. Send initial "Thinking..." message
         const thinkingMessage = await client.chat.postMessage({
@@ -118,11 +151,39 @@ async function processMessageAndGenerateResponse(
         // 2. Initialize context (fetch history etc.)
         await conversationUtils.initializeContextFromHistory(app, threadInfo, currentBotUserIdForHistory);
         const conversationHistory = conversationUtils.getThreadHistory(threadInfo);
+        // Store the message WITHOUT the prepended username in context/history
         conversationUtils.addUserMessageToThread(threadInfo, messageTextOrContent);
+
+        // --- MODIFICATION START: Prepare prompt specifically for the AI ---
+        let promptForAI: string | MessageContent[];
+
+        if (typeof messageTextOrContent === 'string') {
+            // Prepend username to simple text messages
+            promptForAI = `[${userName}] ${messageTextOrContent}`;
+            logger.debug(`${logEmoji.ai} Prepared text prompt for AI: ${promptForAI}`);
+        } else {
+            // Handle multimodal content: Prepend username to the first text part
+            promptForAI = messageTextOrContent.map((part, index) => {
+                // Find the first text part and prepend the name
+                // Note: This assumes the primary text is the first 'input_text' part
+                if (part.type === 'input_text' && index === messageTextOrContent.findIndex(p => p.type === 'input_text')) {
+                    return {
+                        ...part,
+                        text: `[${userName}] ${part.text}`
+                    };
+                }
+                // Keep other parts (like images) unchanged
+                return part;
+            });
+            // Log summary to avoid logging base64 data
+            const promptSummary = promptForAI.map(p => p.type === 'input_image' ? {type: p.type, image_url:'<data_uri>'} : p);
+            logger.debug(`${logEmoji.ai} Prepared multimodal prompt for AI: ${JSON.stringify(promptSummary)}`);
+        }
+        // --- MODIFICATION END ---
 
         // 3. Call the STREAMING function of the AI client
         const eventStream = aiClient.generateResponseStream(
-            messageTextOrContent,
+            promptForAI,
             conversationHistory
         );
 
