@@ -61,4 +61,8 @@ Replace unused `&`, `<`, `>` with `&amp;`, `&lt;`, `&gt;`.
 ## Not supported in mrkdwn
 Headings (`#`), tables, inline images, horizontal rules, nested lists.
 
+## Divider
+
+A line with three dashes (`---`) creates a divider in Slack messages.
+
 ---
