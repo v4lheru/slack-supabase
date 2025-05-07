@@ -45,8 +45,10 @@ primary_railway_mcp_server = MCPServerSse(
     cache_tools_list=True
 )
 
+from datetime import datetime
+
 with open(os.path.join(os.path.dirname(__file__), "system_prompt.md"), "r", encoding="utf-8") as f:
-    system_prompt = f.read()
+    system_prompt = f"Current date and time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n" + f.read()
 
 _agent = Agent(
     name="SlackAssistant",
