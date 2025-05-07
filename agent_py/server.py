@@ -171,6 +171,10 @@ async def generate_stream(req: ChatRequest):
     cleaned_messages = []
     for hist_msg in req.history:
         if isinstance(hist_msg, dict) and "role" in hist_msg and "content" in hist_msg:
+            # Skip system messages from history to ensure only the agent's system prompt is used
+            if hist_msg["role"] == "system":
+                print(f"PY_AGENT_DEBUG (/generate): Ignoring incoming system message from history: '{str(hist_msg.get('content', ''))[:100]}...'")
+                continue  # Do not include system messages from client history
             cleaned_msg = {"role": hist_msg["role"], "content": hist_msg["content"]}
             if hist_msg["role"] == "tool":
                 if "tool_call_id" in hist_msg:
