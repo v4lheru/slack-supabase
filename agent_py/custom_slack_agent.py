@@ -53,15 +53,21 @@ if not hubspot_mcp_token:
 hubspot_mcp_server = MCPServerStdio(
     name="hubspot",
     params={
-        "command": "npx",
-        "args": ["-y", "@hubspot/mcp-server"],
+        # Use the right shell command per OS
+        "command": "cmd" if os.name == "nt" else "npx",
+        "args": (
+            ["/c", "npx", "-y", "@hubspot/mcp-server"]
+            if os.name == "nt"
+            else ["-y", "@hubspot/mcp-server"]
+        ),
         "env": {
-            "PRIVATE_APP_ACCESS_TOKEN": hubspot_mcp_token or ""
+            "PRIVATE_APP_ACCESS_TOKEN": hubspot_mcp_token or "",
+            # npx under some shells insists that this exists
+            "XDG_CONFIG_HOME": os.environ.get("XDG_CONFIG_HOME", "/tmp"),
         }
         # Optionally, add 'cwd' here if needed.
     },
-    # Optionally, you can set client_session_timeout_seconds and cache_tools_list here if needed.
-    # client_session_timeout_seconds=60.0,
+    client_session_timeout_seconds=120.0,   # hubspot server needs a bit more time to start
     # cache_tools_list=True
 )
 
