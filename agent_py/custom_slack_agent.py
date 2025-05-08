@@ -71,6 +71,29 @@ hubspot_mcp_server = MCPServerStdio(
     # cache_tools_list=True
 )
 
+# --- Slack MCP Server definition ---
+slack_bot_token = os.getenv("SLACK_BOT_TOKEN")
+slack_team_id = os.getenv("SLACK_TEAM_ID")
+if not slack_bot_token or not slack_team_id:
+    print("WARNING: SLACK_BOT_TOKEN or SLACK_TEAM_ID is not set. Slack MCP may not start correctly.")
+
+slack_mcp_server = MCPServerStdio(
+    name="slack",
+    params={
+        "command": "npx",
+        "args": [
+            "-y",
+            "@modelcontextprotocol/server-slack"
+        ],
+        "env": {
+            "SLACK_BOT_TOKEN": slack_bot_token or "",
+            "SLACK_TEAM_ID": slack_team_id or "",
+        }
+    },
+    # You can adjust timeout or other params as needed
+    client_session_timeout_seconds=60.0,
+)
+
 from datetime import datetime
 
 with open(os.path.join(os.path.dirname(__file__), "system_prompt.md"), "r", encoding="utf-8") as f:
@@ -80,7 +103,7 @@ _agent = Agent(
     name="SlackAssistant",
     model=os.getenv("AGENT_MODEL", "gpt-4o"),
     instructions=system_prompt,
-    mcp_servers=[primary_railway_mcp_server, hubspot_mcp_server],  # Added hubspot_mcp_server
+    mcp_servers=[primary_railway_mcp_server, hubspot_mcp_server, slack_mcp_server],  # Added slack_mcp_server
 )
 
 # For easier access in server.py, you can create a list of active servers
