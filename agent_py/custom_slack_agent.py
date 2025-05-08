@@ -23,7 +23,7 @@ set_default_openai_api("chat_completions")  # switch away from /v1/responses
 set_tracing_disabled(True)                 # silence 401 tracing errors
 
 from agents import Agent
-from agents.mcp import MCPServerSse
+from agents.mcp import MCPServerSse, MCPServerProcess
 
 # Define your MCP server(s)
 railway_server_url = "https://eu1.make.com/mcp/api/v1/u/2a183f33-4498-4ebe-b558-49e956ee0c29/sse"
@@ -45,6 +45,25 @@ primary_railway_mcp_server = MCPServerSse(
     cache_tools_list=True
 )
 
+# --- HubSpot MCP Server definition ---
+hubspot_mcp_token = os.getenv("HUBSPOT_PRIVATE_APP_ACCESS_TOKEN")
+if not hubspot_mcp_token:
+    print("WARNING: HUBSPOT_PRIVATE_APP_ACCESS_TOKEN is not set. HubSpot MCP may not start correctly.")
+
+hubspot_mcp_server = MCPServerProcess(
+    name="hubspot",
+    params={
+        "command": "npx",
+        "args": ["-y", "@hubspot/mcp-server"],
+        "env": {
+            "PRIVATE_APP_ACCESS_TOKEN": hubspot_mcp_token or ""
+        }
+    },
+    # Optionally, you can set client_session_timeout_seconds and cache_tools_list here if needed.
+    # client_session_timeout_seconds=60.0,
+    # cache_tools_list=True
+)
+
 from datetime import datetime
 
 with open(os.path.join(os.path.dirname(__file__), "system_prompt.md"), "r", encoding="utf-8") as f:
@@ -54,8 +73,7 @@ _agent = Agent(
     name="SlackAssistant",
     model=os.getenv("AGENT_MODEL", "gpt-4o"),
     instructions=system_prompt,
-    mcp_servers=[primary_railway_mcp_server],  # Example: using only primary_railway
-    # mcp_servers=[railway_mcp_server, primary_railway_mcp_server],  # If using both
+    mcp_servers=[primary_railway_mcp_server, hubspot_mcp_server],  # Added hubspot_mcp_server
 )
 
 # For easier access in server.py, you can create a list of active servers
