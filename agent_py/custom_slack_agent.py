@@ -23,7 +23,7 @@ set_default_openai_api("chat_completions")  # switch away from /v1/responses
 set_tracing_disabled(True)                 # silence 401 tracing errors
 
 from agents import Agent
-from agents.mcp import MCPServerSse, MCPServerProcess
+from agents.mcp import MCPServerSse, MCPServerStdio
 
 # Define your MCP server(s)
 railway_server_url = "https://eu1.make.com/mcp/api/v1/u/2a183f33-4498-4ebe-b558-49e956ee0c29/sse"
@@ -50,7 +50,7 @@ hubspot_mcp_token = os.getenv("HUBSPOT_PRIVATE_APP_ACCESS_TOKEN")
 if not hubspot_mcp_token:
     print("WARNING: HUBSPOT_PRIVATE_APP_ACCESS_TOKEN is not set. HubSpot MCP may not start correctly.")
 
-hubspot_mcp_server = MCPServerProcess(
+hubspot_mcp_server = MCPServerStdio(
     name="hubspot",
     params={
         "command": "npx",
@@ -58,6 +58,7 @@ hubspot_mcp_server = MCPServerProcess(
         "env": {
             "PRIVATE_APP_ACCESS_TOKEN": hubspot_mcp_token or ""
         }
+        # Optionally, add 'cwd' here if needed.
     },
     # Optionally, you can set client_session_timeout_seconds and cache_tools_list here if needed.
     # client_session_timeout_seconds=60.0,
