@@ -52,7 +52,7 @@ class ChatResponse(BaseModel):
 
 # --- Streaming generator for agent events ---
 # (No longer manages connect/cleanup, only yields agent events)
-async def stream_agent_events(agent, messages, max_retries=2):
+async def stream_agent_events(agent, messages, max_retries=5):
     print(f"PY_AGENT_DEBUG (stream_agent_events): Starting agent stream. Number of messages: {len(messages)}")
     if messages:
         print(f"PY_AGENT_DEBUG (stream_agent_events): First message: {messages[0]}")
@@ -139,11 +139,11 @@ async def stream_agent_events(agent, messages, max_retries=2):
                 pass
             if bad_name:
                 correction_msg = {
-                    "role": "system",
-                    "content": f"⚠️ The tool '{bad_name}' is invalid. Try again *without* that tool."
+                    "role": "user",
+                    "content": f"The tool you tried to use ('{bad_name}') does not exist. Please try again without using that tool."
                 }
                 local_messages.append(correction_msg)
-                print(f"PY_AGENT_DEBUG (stream_agent_events): Appended corrective system message for bad tool '{bad_name}'. Retrying (attempt {attempt+1}/{max_retries})...")
+                print(f"PY_AGENT_DEBUG (stream_agent_events): Appended corrective user message for bad tool '{bad_name}'. Retrying (attempt {attempt+1}/{max_retries})...")
             else:
                 print(f"PY_AGENT_DEBUG (stream_agent_events): Could not extract bad tool name from error. Not retrying further.")
                 raise
