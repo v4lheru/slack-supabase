@@ -45,30 +45,29 @@ primary_railway_mcp_server = MCPServerSse(
     cache_tools_list=True
 )
 
-# --- HubSpot MCP Server definition ---
-hubspot_mcp_token = os.getenv("HUBSPOT_PRIVATE_APP_ACCESS_TOKEN")
-if not hubspot_mcp_token:
-    print("WARNING: HUBSPOT_PRIVATE_APP_ACCESS_TOKEN is not set. HubSpot MCP may not start correctly.")
+# --- Supabase MCP Server definition ---
+supabase_access_token = os.getenv("SUPABASE_ACCESS_TOKEN")
+if not supabase_access_token:
+    print("WARNING: SUPABASE_ACCESS_TOKEN is not set. Supabase MCP may not start correctly.")
 
-hubspot_mcp_server = MCPServerStdio(
-    name="hubspot",
+supabase_mcp_server = MCPServerStdio(
+    name="supabase",
     params={
         # Use the right shell command per OS
         "command": "cmd" if os.name == "nt" else "npx",
         "args": (
-            ["/c", "npx", "-y", "@hubspot/mcp-server"]
+            ["/c", "npx", "-y", "@supabase/mcp-server-supabase@latest", "--access-token", supabase_access_token or ""]
             if os.name == "nt"
-            else ["-y", "@hubspot/mcp-server"]
+            else ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", supabase_access_token or ""]
         ),
         "env": {
-            "PRIVATE_APP_ACCESS_TOKEN": hubspot_mcp_token or "",
             # npx under some shells insists that this exists
             "XDG_CONFIG_HOME": os.environ.get("XDG_CONFIG_HOME", "/tmp"),
         }
         # Optionally, add 'cwd' here if needed.
     },
-    client_session_timeout_seconds=120.0,   # hubspot server needs a bit more time to start
-    # cache_tools_list=True
+    client_session_timeout_seconds=120.0,   # supabase server needs a bit more time to start
+    cache_tools_list=True
 )
 
 # --- Slack MCP Server definition ---
@@ -103,7 +102,7 @@ _agent = Agent(
     name="SlackAssistant",
     model=os.getenv("AGENT_MODEL", "gpt-4o"),
     instructions=system_prompt,
-    mcp_servers=[primary_railway_mcp_server, hubspot_mcp_server, slack_mcp_server],  # Added slack_mcp_server
+    mcp_servers=[primary_railway_mcp_server, supabase_mcp_server, slack_mcp_server],  # Replaced hubspot_mcp_server with supabase_mcp_server
 )
 
 # For easier access in server.py, you can create a list of active servers

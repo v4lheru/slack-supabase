@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 import json
 import asyncio
 import traceback # Import traceback
@@ -20,6 +20,11 @@ from custom_slack_agent import _agent, ACTIVE_MCP_SERVERS
 from openai.types.responses import ResponseTextDeltaEvent
 
 app = FastAPI(title="Slack-Agent API")
+
+# Health check endpoint for Railway
+@app.get("/health")
+async def health_check():
+    return JSONResponse({"status": "ok", "message": "Python Agent is running"})
 
 # --- Application Startup Event ---
 @app.on_event("startup")

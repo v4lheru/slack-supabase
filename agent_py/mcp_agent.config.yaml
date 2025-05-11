@@ -5,3 +5,11 @@ servers:
   primary_railway:
     url: "https://primary-nj0x-production.up.railway.app/mcp/1b39de32-b22f-4323-ad9e-e332c41930ce/sse"
     type: "sse"
+  supabase:
+    command: "npx"
+    args:
+      - "-y"
+      - "@supabase/mcp-server-supabase@latest"
+      - "--access-token"
+      - "${SUPABASE_ACCESS_TOKEN}"
+    type: "stdio"
