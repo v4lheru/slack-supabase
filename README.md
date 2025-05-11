@@ -105,17 +105,31 @@ This will build the TypeScript code and start the bot in production mode.
 
 ## Deployment on Railway
 
-This project includes configuration files for deploying on Railway:
+This project requires two separate deployments on Railway:
 
-1. `railway.json` - Configuration for Railway deployment
-2. `Procfile` - Process file for Railway
+1. **Node.js Slack Bot** (root directory)
+2. **Python Agent** (agent_py directory)
 
-To deploy on Railway:
+For detailed deployment instructions, see [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md).
 
-1. Push your code to a GitHub repository
-2. Create a new project on Railway from the GitHub repository
-3. Set up the environment variables in the Railway dashboard
-4. Deploy the project
+### Quick Deployment Steps
+
+1. **Deploy the Python Agent**:
+   - Create a new project in Railway
+   - Set root directory to `agent_py`
+   - Set start command to `uvicorn server:app --host 0.0.0.0 --port 8001`
+   - Configure environment variables
+   - Generate a public domain
+
+2. **Deploy the Node.js Slack Bot**:
+   - Create another new project in Railway
+   - Use the root directory
+   - Set `PY_AGENT_URL` to the Python Agent's public URL
+   - Configure other environment variables
+   - Generate a public domain
+
+3. **Configure Slack App**:
+   - Set the Request URL to your Node.js Slack Bot URL + `/slack/events`
 
 ## Project Structure
 
@@ -212,16 +226,17 @@ Slack  <--->  Node.js (Bolt)  <--HTTP-->  Python Agent (FastAPI, OpenAI Agents S
 
 - `src/ai/agent-api/client.ts`: Node.js client for communicating with the Python agent service.
 - `agent_py/server.py`: FastAPI server exposing the `/generate` endpoint for AI responses.
-- `agent_py/mcp_agent.py`: Defines the OpenAI Agent with MCP tool integration.
+- `agent_py/custom_slack_agent.py`: Defines the OpenAI Agent with MCP tool integration.
 - `src/slack/events/index.ts`: Handles Slack events and routes messages to the AI provider.
 - `src/config/environment.ts`: Loads and validates environment variables.
+- `mcp.config.json`: Configuration for MCP servers, including the Supabase MCP server.
 
 ## Setup
 
 ### 1. Python Agent Service
 
 1. Go to the `agent_py/` directory.
-2. Copy `.env.example` to `.env` and fill in your OpenAI and MCP credentials.
+2. Copy `.env.example` to `.env` and fill in your OpenAI, Slack, and Supabase credentials.
 3. Install dependencies:
    ```bash
    pip install -r requirements.txt
@@ -230,6 +245,17 @@ Slack  <--->  Node.js (Bolt)  <--HTTP-->  Python Agent (FastAPI, OpenAI Agents S
    ```bash
    uvicorn server:app --host 0.0.0.0 --port 8001
    ```
+
+### 2. Supabase MCP Server Setup
+
+1. Create a Supabase personal access token (PAT) in your Supabase dashboard.
+2. Add the following environment variables to your `.env` file:
+   ```
+   SUPABASE_URL=https://your-project-ref.supabase.co
+   SUPABASE_KEY=your-supabase-service-role-key
+   SUPABASE_ACCESS_TOKEN=your-personal-access-token
+   ```
+3. For more details on the Supabase MCP server integration, see [SUPABASE_MCP.md](SUPABASE_MCP.md).
 
 ### 2. Node.js Slack Bot
 
@@ -247,7 +273,8 @@ Slack  <--->  Node.js (Bolt)  <--HTTP-->  Python Agent (FastAPI, OpenAI Agents S
 ## How It Works
 
 - When a user sends a message in Slack, the Node.js bot receives it and sends the message (plus conversation history) to the Python agent.
-- The Python agent uses OpenAI's Agents SDK and the MCP tool to process the message, call any necessary tools, and generate a response.
+- The Python agent uses OpenAI's Agents SDK and the MCP tools to process the message, call any necessary tools, and generate a response.
+- The agent can use various MCP servers, including the Supabase MCP server, to access external data and perform actions.
 - The response is sent back to Node.js, which posts it in the Slack thread.
 
 ## Why This Approach?
@@ -255,6 +282,7 @@ Slack  <--->  Node.js (Bolt)  <--HTTP-->  Python Agent (FastAPI, OpenAI Agents S
 - **Flexibility:** Easily add or update tools in the MCP server without changing the Node.js code.
 - **Separation:** Keep Slack/event logic in Node.js and AI/tool logic in Python.
 - **Future-proof:** Ready for new OpenAI Agent SDK features and tool integrations.
+- **Database Integration:** Direct access to your Supabase database through the Supabase MCP server.
 
 ## Requirements
 
@@ -262,6 +290,7 @@ Slack  <--->  Node.js (Bolt)  <--HTTP-->  Python Agent (FastAPI, OpenAI Agents S
 - Python 3.10+
 - Slack App credentials
 - OpenAI API key
+- Supabase account and personal access token
 - MCP server (for tool integration)
 
 ## License
